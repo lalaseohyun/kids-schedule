@@ -1443,28 +1443,32 @@
             const periodHeights = {};
             if (currentDayFilter !== 'all') {
                 const day = currentDayFilter;
+                
+                // 먼저 기본 높이로 초기화
                 allPeriods.forEach((period, idx) => {
-                    const daySchedules = schedules[day] || [];
-                    const periodSchedules = daySchedules.filter(event => {
-                        return period.period 
+                    periodHeights[idx] = 40;
+                });
+                
+                // 각 일정을 확인하고 걸쳐있는 모든 칸의 높이를 늘림
+                const daySchedules = schedules[day] || [];
+                daySchedules.forEach(event => {
+                    let detailsCount = 0;
+                    if (event.teacher) detailsCount++;
+                    if (event.contact) detailsCount++;
+                    if (event.memo) detailsCount++;
+                    const eventHeight = 60 + (detailsCount * 25) + 10;
+                    
+                    // 이 일정이 걸쳐있는 모든 period 찾기
+                    allPeriods.forEach((period, idx) => {
+                        const isIn = period.period 
                             ? isEventInPeriod(event, period)
                             : isEventInHour(event, period.hour);
+                        
+                        if (isIn) {
+                            // 이 period에 일정이 있으면 높이 업데이트
+                            periodHeights[idx] = Math.max(periodHeights[idx], eventHeight + 20);
+                        }
                     });
-                    
-                    let totalHeight = 40; // 기본
-                    if (periodSchedules.length > 0) {
-                        let eventsHeight = 0;
-                        periodSchedules.forEach(event => {
-                            let detailsCount = 0;
-                            if (event.teacher) detailsCount++;
-                            if (event.contact) detailsCount++;
-                            if (event.memo) detailsCount++;
-                            const eventHeight = 60 + (detailsCount * 25) + 10;
-                            eventsHeight += eventHeight;
-                        });
-                        totalHeight = Math.max(40, eventsHeight + 20);
-                    }
-                    periodHeights[idx] = totalHeight;
                 });
             }
 
