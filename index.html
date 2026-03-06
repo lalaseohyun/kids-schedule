@@ -8,6 +8,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="시간표">
     <title>시간표</title>
+    
+    <!-- Firebase SDK (compat 방식) -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -1045,12 +1050,8 @@
         </div>
     </div>
 
-    <script type="module">
-        // Firebase 모듈 import
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-        import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
-        
-        // Firebase 설정
+    <script>
+        // Firebase 설정 (compat 방식)
         const firebaseConfig = {
             apiKey: "AIzaSyDu8BbnshZeKeLMrRziNzMF8r9XBnENeC0",
             authDomain: "kids-schedule-app-427c9.firebaseapp.com",
@@ -1063,13 +1064,12 @@
         
         // Firebase 초기화
         let database = null;
-        let app = null;
         try {
-            app = initializeApp(firebaseConfig);
-            database = getDatabase(app);
-            console.log('Firebase 연결 성공');
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            console.log('✅ Firebase 연결 성공');
         } catch (error) {
-            console.log('Firebase 연결 실패 (LocalStorage 사용):', error);
+            console.log('❌ Firebase 연결 실패 (LocalStorage 사용):', error);
         }
         
         const STORAGE_KEY = 'scheduleApp';
@@ -1301,16 +1301,15 @@
             if (database && currentUser) {
                 try {
                     const userKey = `${currentUser.nickname}-${currentUser.phone}`;
-                    const userRef = ref(database, 'users/' + userKey);
-                    await set(userRef, {
+                    await database.ref('users/' + userKey).set({
                         userData: appData.users.find(u => u.nickname === currentUser.nickname && u.phone === currentUser.phone),
                         schedules: appData.schedules,
                         subjectColors: appData.subjectColors,
                         lastUpdated: Date.now()
                     });
-                    console.log('Firebase 동기화 완료');
+                    console.log('✅ Firebase 동기화 완료');
                 } catch (error) {
-                    console.log('Firebase 저장 실패:', error);
+                    console.log('❌ Firebase 저장 실패:', error);
                 }
             }
         }
@@ -1320,11 +1319,11 @@
             
             try {
                 const userKey = `${nickname}-${phone}`;
-                const dbRef = ref(database);
-                const snapshot = await get(child(dbRef, 'users/' + userKey));
+                const snapshot = await database.ref('users/' + userKey).once('value');
+                const data = snapshot.val();
                 
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
+                if (data) {
+                    console.log('📥 Firebase 데이터 발견:', data);
                     // Firebase 데이터가 있으면 가져오기
                     const firebaseUpdated = data.lastUpdated || 0;
                     const localData = localStorage.getItem(STORAGE_KEY);
@@ -1332,6 +1331,7 @@
                     
                     // 더 최신 데이터 사용
                     if (firebaseUpdated > localUpdated) {
+                        console.log('🔄 Firebase가 더 최신 - 데이터 로드');
                         // Firebase가 더 최신
                         appData.schedules = data.schedules || {};
                         appData.subjectColors = data.subjectColors || {};
@@ -1344,12 +1344,16 @@
                         
                         appData.lastUpdated = firebaseUpdated;
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-                        console.log('Firebase에서 최신 데이터 로드');
+                        console.log('✅ Firebase에서 최신 데이터 로드 완료');
                         return true;
+                    } else {
+                        console.log('💾 LocalStorage가 더 최신');
                     }
+                } else {
+                    console.log('📭 Firebase에 데이터 없음');
                 }
             } catch (error) {
-                console.log('Firebase 동기화 실패:', error);
+                console.log('❌ Firebase 동기화 실패:', error);
             }
             return false;
         }
@@ -2470,28 +2474,6 @@
         }
 
         init();
-        
-        // HTML onclick에서 접근 가능하도록 window 객체에 함수 등록
-        window.handleLogin = handleLogin;
-        window.handleRegister = handleRegister;
-        window.handleLogout = handleLogout;
-        window.showLogin = showLogin;
-        window.showRegister = showRegister;
-        window.openAddModal = openAddModal;
-        window.closeModal = closeModal;
-        window.clickPeriod = clickPeriod;
-        window.clickHour = clickHour;
-        window.editEvent = editEvent;
-        window.filterByDay = filterByDay;
-        window.toggleChildSelector = toggleChildSelector;
-        window.selectChild = selectChild;
-        window.showAddChild = showAddChild;
-        window.closeAddChild = closeAddChild;
-        window.addChild = addChild;
-        window.toggleRepeat = toggleRepeat;
-        window.deleteEvent = deleteEvent;
-        window.editOnlyThis = editOnlyThis;
-        window.editAllRepeating = editAllRepeating;
     </script>
 </body>
 </html>
