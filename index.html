@@ -1427,18 +1427,6 @@
             const allDays = ['월', '화', '수', '목', '금', '토'];
             const days = currentDayFilter === 'all' ? allDays : [currentDayFilter];
 
-            let html = '<div class="day-header"></div>';
-            
-            if (currentDayFilter === 'all') {
-                // 전체 보기 - 모든 요일 헤더
-                allDays.forEach(day => {
-                    html += `<div class="day-header" onclick="filterByDay('${day}')">${day}</div>`;
-                });
-            } else {
-                // 상세 보기 - 뒤로가기 + 선택된 요일
-                html += `<div class="day-header active" onclick="filterByDay('all')">← 전체</div>`;
-            }
-            
             // 상세보기일 때 각 period별 높이 미리 계산
             const periodHeights = {};
             if (currentDayFilter !== 'all') {
@@ -1470,6 +1458,26 @@
                         }
                     });
                 });
+            }
+
+            // 첫 번째 빈 칸 (왼쪽 상단 코너)
+            let html = '';
+            if (currentDayFilter === 'all') {
+                html += '<div class="day-header"></div>';
+            } else {
+                // 상세보기일 때는 첫 번째 period와 같은 높이
+                const firstPeriodHeight = periodHeights[0] || 40;
+                html += `<div class="day-header" style="height: ${firstPeriodHeight}px;"></div>`;
+            }
+            
+            if (currentDayFilter === 'all') {
+                // 전체 보기 - 모든 요일 헤더
+                allDays.forEach(day => {
+                    html += `<div class="day-header" onclick="filterByDay('${day}')">${day}</div>`;
+                });
+            } else {
+                // 상세 보기 - 뒤로가기 + 선택된 요일
+                html += `<div class="day-header active" onclick="filterByDay('all')">← 전체</div>`;
             }
 
             allPeriods.forEach((period, idx) => {
@@ -2261,6 +2269,7 @@
             if (event) event.stopPropagation();
             
             currentChildId = childId;
+            currentDayFilter = 'all'; // 전체보기로 리셋
             document.getElementById('childSelector').classList.remove('show');
             updateHeaderTitle();
             renderCalendar();
