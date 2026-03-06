@@ -641,9 +641,12 @@
             }
             
             .calendar-grid {
-                grid-template-columns: 40px repeat(6, 70px) !important;
                 min-width: auto !important;
                 font-size: 9px !important;
+            }
+            
+            .calendar-grid.full-view {
+                grid-template-columns: 40px repeat(6, 70px) !important;
             }
             
             .day-header {
@@ -1612,11 +1615,15 @@
             
             // 그리드 컬럼 조정
             if (currentDayFilter === 'all') {
-                // 전체보기: CSS 미디어 쿼리가 처리
-                grid.style.gridTemplateColumns = '';
+                // 전체보기
+                grid.classList.add('full-view');
+                grid.classList.remove('detail-view');
             } else {
-                // 상세보기: 무조건 2열 (시간 라벨 + 내용)
-                grid.style.gridTemplateColumns = window.innerWidth <= 768 ? '40px 1fr' : '80px 1fr';
+                // 상세보기: 2열로 강제
+                grid.classList.remove('full-view');
+                grid.classList.add('detail-view');
+                const columns = window.innerWidth <= 768 ? '40px 1fr' : '80px 1fr';
+                grid.setAttribute('style', `grid-template-columns: ${columns} !important;`);
             }
         }
         
