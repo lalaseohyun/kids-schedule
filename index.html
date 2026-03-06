@@ -180,7 +180,7 @@
 
         .calendar-grid {
             display: grid;
-            grid-template-columns: 80px repeat(6, 1fr);
+            grid-template-columns: 50px repeat(6, 1fr);
             min-width: 100%;
             border-left: 1px solid #e0e0e0;
             overflow-x: auto;
@@ -190,7 +190,7 @@
             padding: 0;
             overflow-x: auto;
             overflow-y: auto;
-            max-height: calc(100vh - 120px);
+            max-height: calc(100vh - 60px);
         }
 
         .calendar-header {
@@ -636,42 +636,43 @@
             /* 스마트폰 */
             .calendar-container {
                 padding: 0;
-                max-height: calc(100vh - 100px);
+                max-height: calc(100vh - 56px);
             }
             
             .calendar-grid {
                 min-width: 100%;
-                grid-template-columns: 60px repeat(6, minmax(50px, 1fr));
+                grid-template-columns: 45px repeat(5, 1fr);
                 font-size: 10px;
             }
             
             .day-header {
-                padding: 8px 2px;
+                padding: 6px 2px;
                 font-size: 11px;
             }
             
             .time-label {
                 font-size: 9px;
-                padding: 4px 2px;
+                padding: 3px 1px;
             }
             
             .time-slot {
-                min-height: 60px;
+                min-height: 50px;
+                height: 50px;
                 font-size: 9px;
             }
             
             .event {
-                padding: 3px 4px;
+                padding: 2px 3px;
                 font-size: 9px;
             }
             
             .event-name {
-                font-size: 10px;
-                margin-bottom: 2px;
+                font-size: 9px;
+                margin-bottom: 1px;
             }
             
             .event-time {
-                font-size: 8px;
+                font-size: 7px;
             }
             
             .event-details {
@@ -685,13 +686,29 @@
                 overflow-y: auto;
             }
             
+            .header {
+                padding: 10px 12px;
+            }
+            
             .header-title {
                 font-size: 14px;
             }
             
             .logout-btn {
-                font-size: 11px;
+                font-size: 10px;
                 padding: 4px 8px;
+            }
+            
+            /* 40분 교시 높이 줄이기 */
+            .calendar-grid [style*="height: 70px"] {
+                height: 55px !important;
+                min-height: 55px !important;
+            }
+            
+            /* 점심시간 높이 줄이기 */
+            .calendar-grid [style*="height: 40px"] {
+                height: 30px !important;
+                min-height: 30px !important;
             }
         }
         
@@ -699,6 +716,7 @@
             /* 태블릿 */
             .calendar-grid {
                 font-size: 12px;
+                grid-template-columns: 60px repeat(6, 1fr);
             }
             
             .day-header {
@@ -708,6 +726,11 @@
             
             .time-label {
                 font-size: 11px;
+            }
+            
+            .time-slot {
+                min-height: 65px;
+                height: 65px;
             }
             
             .event-name {
@@ -731,6 +754,7 @@
             /* PC */
             .calendar-grid {
                 font-size: 14px;
+                grid-template-columns: 80px repeat(6, 1fr);
             }
             
             .day-header {
@@ -740,6 +764,11 @@
             
             .time-label {
                 font-size: 12px;
+            }
+            
+            .time-slot {
+                min-height: 80px;
+                height: 80px;
             }
             
             .event-name {
@@ -1506,11 +1535,11 @@
                             </div>`;
                         } else if (isLunch && day === '토') {
                             // 토요일 점심시간 - 클릭 가능
-                            html += `<div class="time-slot" style="min-height: auto; height: auto; padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
                         } else if (period.period) {
-                            html += `<div class="time-slot" style="min-height: auto; height: auto; padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
                         } else {
-                            html += `<div class="time-slot" style="min-height: auto; height: auto; padding: 10px 0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
+                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
                         }
                         
                         if (!(isLunch && day !== '토')) {
@@ -1552,7 +1581,12 @@
             
             // 그리드 컬럼 조정
             if (currentDayFilter === 'all') {
-                grid.style.gridTemplateColumns = '80px repeat(6, 1fr)';
+                // 모바일에서는 5열(월~금), PC에서는 6열(월~토)
+                if (window.innerWidth <= 768) {
+                    grid.style.gridTemplateColumns = '45px repeat(5, 1fr)';
+                } else {
+                    grid.style.gridTemplateColumns = '80px repeat(6, 1fr)';
+                }
             } else {
                 grid.style.gridTemplateColumns = '80px 1fr';
             }
