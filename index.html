@@ -1610,11 +1610,12 @@
 
             grid.innerHTML = html;
             
-            // 그리드 컬럼 조정 (CSS 미디어 쿼리가 처리하므로 간소화)
+            // 그리드 컬럼 조정
             if (currentDayFilter === 'all') {
-                // CSS에서 자동 처리
+                // 전체보기: CSS 미디어 쿼리가 처리
+                grid.style.gridTemplateColumns = '';
             } else {
-                // 상세보기는 단일 컬럼
+                // 상세보기: 무조건 2열 (시간 라벨 + 내용)
                 grid.style.gridTemplateColumns = window.innerWidth <= 768 ? '40px 1fr' : '80px 1fr';
             }
         }
