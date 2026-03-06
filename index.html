@@ -1438,20 +1438,12 @@
                 // 상세 보기 - 뒤로가기 + 선택된 요일
                 html += `<div class="day-header active" onclick="filterByDay('all')">← 전체</div>`;
             }
-
-            allPeriods.forEach((period, idx) => {
-                // 교시 또는 시간 표시
-                const label = period.period || `${period.hour}:00`;
-                const displayLabel = period.hour ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`) : period.period;
-                
-                // 모든 칸 40px로 통일
-                const isLunch = period.period === '점심';
-                const slotHeight = 'height: 40px; min-height: 40px;';
-                
-                // 상세보기일 때 해당 시간대의 일정 개수와 상세정보 확인
-                let detailViewHeight = 40; // 기본 높이
-                if (currentDayFilter !== 'all') {
-                    const day = currentDayFilter;
+            
+            // 상세보기일 때 각 period별 높이 미리 계산
+            const periodHeights = {};
+            if (currentDayFilter !== 'all') {
+                const day = currentDayFilter;
+                allPeriods.forEach((period, idx) => {
                     const daySchedules = schedules[day] || [];
                     const periodSchedules = daySchedules.filter(event => {
                         return period.period 
@@ -1459,20 +1451,34 @@
                             : isEventInHour(event, period.hour);
                     });
                     
+                    let totalHeight = 40; // 기본
                     if (periodSchedules.length > 0) {
-                        // 각 일정의 높이 계산
-                        let maxEventHeight = 0;
+                        let eventsHeight = 0;
                         periodSchedules.forEach(event => {
                             let detailsCount = 0;
                             if (event.teacher) detailsCount++;
                             if (event.contact) detailsCount++;
                             if (event.memo) detailsCount++;
-                            const eventHeight = 60 + (detailsCount * 25) + 10; // margin 포함
-                            maxEventHeight += eventHeight;
+                            const eventHeight = 60 + (detailsCount * 25) + 10;
+                            eventsHeight += eventHeight;
                         });
-                        detailViewHeight = Math.max(40, maxEventHeight);
+                        totalHeight = Math.max(40, eventsHeight + 20);
                     }
-                }
+                    periodHeights[idx] = totalHeight;
+                });
+            }
+
+            allPeriods.forEach((period, idx) => {
+                // 교시 또는 시간 표시
+                const label = period.period || `${period.hour}:00`;
+                const displayLabel = period.hour ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`) : period.period;
+                
+                // 모든 칸 40px로 통일 (전체보기)
+                const isLunch = period.period === '점심';
+                const slotHeight = 'height: 40px; min-height: 40px;';
+                
+                // 상세보기 높이
+                const detailViewHeight = periodHeights[idx] || 40;
                 
                 // 왼쪽 라벨
                 if (currentDayFilter === 'all') {
