@@ -240,7 +240,7 @@
             font-weight: 600;
             color: #333;
             border-right: 1px solid #e0e0e0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid #e0e0e0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -248,7 +248,7 @@
 
         .time-slot {
             border-right: 1px solid #e0e0e0;
-            border-bottom: none;
+            border-bottom: 1px solid #e0e0e0;
             min-height: 80px;
             height: 80px;
             position: relative;
@@ -657,7 +657,6 @@
             
             .calendar-grid {
                 min-width: auto !important;
-                font-size: 9px !important;
             }
             
             .calendar-grid.full-view {
@@ -670,11 +669,10 @@
             
             .day-header {
                 padding: 8px 4px !important;
-                font-size: 10px !important;
+                font-size: 16px !important;
             }
             
             .time-label {
-                font-size: 8px !important;
                 padding: 4px 2px !important;
             }
             
@@ -683,13 +681,7 @@
                 height: 40px !important;
             }
             
-            .event-name {
-                font-size: 9px !important;
-            }
-            
-            .event-time {
-                font-size: 7px !important;
-            }
+            /* 모바일에서는 event 내부 폰트는 인라인 스타일 유지 */
             
             .header {
                 padding: 10px 12px !important;
