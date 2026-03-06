@@ -633,61 +633,40 @@
         }
 
         @media (max-width: 768px) {
-            /* 스마트폰 - 강제 적용 */
-            body {
-                font-size: 10px !important;
-            }
-            
+            /* 모바일 - 토요일 스크롤 가능 */
             .calendar-container {
                 padding: 0 !important;
                 max-height: calc(100vh - 56px) !important;
+                overflow-x: auto !important;
             }
             
             .calendar-grid {
-                min-width: 100% !important;
-                grid-template-columns: 45px repeat(5, 1fr) !important;
-                font-size: 10px !important;
+                grid-template-columns: 40px repeat(6, 70px) !important;
+                min-width: auto !important;
+                font-size: 9px !important;
             }
             
             .day-header {
-                padding: 6px 2px !important;
-                font-size: 11px !important;
+                padding: 8px 4px !important;
+                font-size: 10px !important;
             }
             
             .time-label {
-                font-size: 9px !important;
-                padding: 3px 1px !important;
+                font-size: 8px !important;
+                padding: 4px 2px !important;
             }
             
             .time-slot {
                 min-height: 50px !important;
                 height: 50px !important;
-                font-size: 9px !important;
-            }
-            
-            .event {
-                padding: 2px 3px !important;
-                font-size: 9px !important;
             }
             
             .event-name {
                 font-size: 9px !important;
-                margin-bottom: 1px !important;
             }
             
             .event-time {
                 font-size: 7px !important;
-            }
-            
-            .event-details {
-                font-size: 8px !important;
-                margin-top: 2px !important;
-            }
-
-            .modal-content {
-                margin: 10px !important;
-                max-height: 90vh !important;
-                overflow-y: auto !important;
             }
             
             .header {
@@ -696,11 +675,6 @@
             
             .header-title {
                 font-size: 14px !important;
-            }
-            
-            .logout-btn {
-                font-size: 10px !important;
-                padding: 4px 8px !important;
             }
         }
         
@@ -1576,23 +1550,12 @@
 
             grid.innerHTML = html;
             
-            // 그리드 컬럼 조정
+            // 그리드 컬럼 조정 (CSS 미디어 쿼리가 처리하므로 간소화)
             if (currentDayFilter === 'all') {
-                // 모바일에서는 5열(월~금), PC에서는 6열(월~토)
-                if (window.innerWidth <= 768) {
-                    grid.style.gridTemplateColumns = '45px repeat(5, 1fr)';
-                    grid.style.fontSize = '10px';
-                } else if (window.innerWidth <= 1024) {
-                    grid.style.gridTemplateColumns = '60px repeat(6, 1fr)';
-                } else {
-                    grid.style.gridTemplateColumns = '80px repeat(6, 1fr)';
-                }
+                // CSS에서 자동 처리
             } else {
-                if (window.innerWidth <= 768) {
-                    grid.style.gridTemplateColumns = '45px 1fr';
-                } else {
-                    grid.style.gridTemplateColumns = '80px 1fr';
-                }
+                // 상세보기는 단일 컬럼
+                grid.style.gridTemplateColumns = window.innerWidth <= 768 ? '40px 1fr' : '80px 1fr';
             }
         }
         
