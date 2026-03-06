@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 배경 -->
+  <rect width="512" height="512" fill="white"/>
+  
+  <!-- 달력 상단 링 홀더 -->
+  <rect x="100" y="80" width="40" height="60" fill="#8B9DC3" rx="8"/>
+  <rect x="372" y="80" width="40" height="60" fill="#8B9DC3" rx="8"/>
+  
+  <!-- 달력 본체 -->
+  <rect x="80" y="120" width="352" height="312" fill="#F5F5F5" rx="12" stroke="#D0D0D0" stroke-width="3"/>
+  
+  <!-- 상단 헤더 바 -->
+  <rect x="80" y="120" width="352" height="60" fill="#8B9DC3" rx="12"/>
+  <rect x="80" y="150" width="352" height="30" fill="#8B9DC3"/>
+  
+  <!-- 그리드 라인 (가로) -->
+  <line x1="80" y1="230" x2="432" y2="230" stroke="#D0D0D0" stroke-width="2"/>
+  <line x1="80" y1="290" x2="432" y2="290" stroke="#D0D0D0" stroke-width="2"/>
+  <line x1="80" y1="350" x2="432" y2="350" stroke="#D0D0D0" stroke-width="2"/>
+  
+  <!-- 그리드 라인 (세로) -->
+  <line x1="168" y1="180" x2="168" y2="432" stroke="#D0D0D0" stroke-width="2"/>
+  <line x1="256" y1="180" x2="256" y2="432" stroke="#D0D0D0" stroke-width="2"/>
+  <line x1="344" y1="180" x2="344" y2="432" stroke="#D0D0D0" stroke-width="2"/>
+  
+  <!-- 요일 라벨 -->
+  <circle cx="124" cy="205" r="4" fill="#666"/>
+  <circle cx="212" cy="205" r="4" fill="#666"/>
+  <circle cx="300" cy="205" r="4" fill="#666"/>
+  <circle cx="388" cy="205" r="4" fill="#666"/>
+  
+  <!-- 컬러풀한 일정 블록 -->
+  <rect x="95" y="240" width="58" height="35" fill="#FFB4B4" rx="6"/>
+  <rect x="183" y="240" width="58" height="35" fill="#B4D7FF" rx="6"/>
+  <rect x="271" y="300" width="58" height="35" fill="#FFE4B4" rx="6"/>
+  <rect x="359" y="240" width="58" height="35" fill="#D4B4FF" rx="6"/>
+  
+  <rect x="95" y="300" width="58" height="35" fill="#B4FFD7" rx="6"/>
+  <rect x="183" y="360" width="58" height="35" fill="#FFD7B4" rx="6"/>
+  <rect x="359" y="360" width="58" height="35" fill="#FFB4D7" rx="6"/>
+</svg>
