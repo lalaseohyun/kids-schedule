@@ -1581,11 +1581,18 @@
                 // 모바일에서는 5열(월~금), PC에서는 6열(월~토)
                 if (window.innerWidth <= 768) {
                     grid.style.gridTemplateColumns = '45px repeat(5, 1fr)';
+                    grid.style.fontSize = '10px';
+                } else if (window.innerWidth <= 1024) {
+                    grid.style.gridTemplateColumns = '60px repeat(6, 1fr)';
                 } else {
                     grid.style.gridTemplateColumns = '80px repeat(6, 1fr)';
                 }
             } else {
-                grid.style.gridTemplateColumns = '80px 1fr';
+                if (window.innerWidth <= 768) {
+                    grid.style.gridTemplateColumns = '45px 1fr';
+                } else {
+                    grid.style.gridTemplateColumns = '80px 1fr';
+                }
             }
         }
         
