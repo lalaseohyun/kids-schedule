@@ -1448,8 +1448,38 @@
                 const isLunch = period.period === '점심';
                 const slotHeight = 'height: 40px; min-height: 40px;';
                 
+                // 상세보기일 때 해당 시간대의 일정 개수와 상세정보 확인
+                let detailViewHeight = 40; // 기본 높이
+                if (currentDayFilter !== 'all') {
+                    const day = currentDayFilter;
+                    const daySchedules = schedules[day] || [];
+                    const periodSchedules = daySchedules.filter(event => {
+                        return period.period 
+                            ? isEventInPeriod(event, period)
+                            : isEventInHour(event, period.hour);
+                    });
+                    
+                    if (periodSchedules.length > 0) {
+                        // 각 일정의 높이 계산
+                        let maxEventHeight = 0;
+                        periodSchedules.forEach(event => {
+                            let detailsCount = 0;
+                            if (event.teacher) detailsCount++;
+                            if (event.contact) detailsCount++;
+                            if (event.memo) detailsCount++;
+                            const eventHeight = 60 + (detailsCount * 25) + 10; // margin 포함
+                            maxEventHeight += eventHeight;
+                        });
+                        detailViewHeight = Math.max(40, maxEventHeight);
+                    }
+                }
+                
                 // 왼쪽 라벨
-                html += `<div class="time-label" style="height: 40px; min-height: 40px; font-size: 9px;">${displayLabel}</div>`;
+                if (currentDayFilter === 'all') {
+                    html += `<div class="time-label" style="height: 40px; min-height: 40px; font-size: 9px;">${displayLabel}</div>`;
+                } else {
+                    html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 9px; display: flex; align-items: center; justify-content: center;">${displayLabel}</div>`;
+                }
                 
                 days.forEach(day => {
                     const dayEscaped = day.replace(/'/g, "\\'");
@@ -1499,18 +1529,22 @@
                         }
                     } else {
                         // 상세 보기
+                        const slotStyleDetail = currentDayFilter !== 'all' 
+                            ? `height: ${detailViewHeight}px; min-height: ${detailViewHeight}px;` 
+                            : slotHeight;
+                            
                         if (isLunch && day !== '토') {
                             // 점심시간 - 토요일 제외하고 클릭 불가, 시간만 표시
-                            html += `<div class="time-slot" style="height: 40px; min-height: 40px; cursor: default; background: #fafafa; padding: 10px 0; display: flex; align-items: center; justify-content: center;">
+                            html += `<div class="time-slot" style="${slotStyleDetail} cursor: default; background: #fafafa; padding: 10px 0; display: flex; align-items: center; justify-content: center;">
                                 <div style="font-size: 12px; color: #999; text-align: center;">${period.start}-${period.end}</div>
                             </div>`;
                         } else if (isLunch && day === '토') {
                             // 토요일 점심시간 - 클릭 가능
-                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                            html += `<div class="time-slot" style="${slotStyleDetail} padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
                         } else if (period.period) {
-                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                            html += `<div class="time-slot" style="${slotStyleDetail} padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
                         } else {
-                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
+                            html += `<div class="time-slot" style="${slotStyleDetail} padding: 10px 0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
                         }
                         
                         if (!(isLunch && day !== '토')) {
