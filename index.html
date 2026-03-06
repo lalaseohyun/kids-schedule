@@ -186,6 +186,11 @@
             overflow-x: auto;
         }
         
+        /* 상세보기 전용 스타일 */
+        .calendar-grid.detail-view {
+            grid-template-columns: 80px 1fr !important;
+        }
+        
         .calendar-container {
             padding: 0;
             overflow-x: auto;
@@ -647,6 +652,10 @@
             
             .calendar-grid.full-view {
                 grid-template-columns: 40px repeat(6, 70px) !important;
+            }
+            
+            .calendar-grid.detail-view {
+                grid-template-columns: 40px 1fr !important;
             }
             
             .day-header {
@@ -1595,11 +1604,11 @@
                                              draggable="false"
                                              style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: ${eventHeight}px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 4px;" 
                                              onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
-                                            <div class="event-name" style="font-size: 18px; font-weight: 700; margin-bottom: 6px; text-align: left;">${event.name || ''}</div>
-                                            <div class="event-time" style="font-size: 14px; margin-bottom: 6px; text-align: left;">${formatTimeRange(event.startTime, event.endTime)}</div>
-                                            ${event.teacher ? `<div class="event-details" style="font-size: 13px; margin-top: 6px;">👨‍🏫 ${event.teacher}</div>` : ''}
-                                            ${event.contact ? `<div class="event-details" style="font-size: 13px; margin-top: 4px;">📞 ${event.contact}</div>` : ''}
-                                            ${event.memo ? `<div class="event-details" style="font-size: 13px; margin-top: 4px; line-height: 1.4;">📝 ${event.memo}</div>` : ''}
+                                            <div class="event-name" style="font-size: 16px; font-weight: 700; margin-bottom: 8px; text-align: center;">${event.name || ''}</div>
+                                            <div class="event-time" style="font-size: 14px; margin-bottom: 8px; text-align: center;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                            ${event.teacher ? `<div class="event-details" style="font-size: 13px; margin-top: 6px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
+                                            ${event.contact ? `<div class="event-details" style="font-size: 13px; margin-top: 4px; text-align: center;">📞 ${event.contact}</div>` : ''}
+                                            ${event.memo ? `<div class="event-details" style="font-size: 13px; margin-top: 4px; line-height: 1.4; text-align: center;">📝 ${event.memo}</div>` : ''}
                                         </div>
                                     `;
                                 });
@@ -1619,11 +1628,9 @@
                 grid.classList.add('full-view');
                 grid.classList.remove('detail-view');
             } else {
-                // 상세보기: 2열로 강제
+                // 상세보기
                 grid.classList.remove('full-view');
                 grid.classList.add('detail-view');
-                const columns = window.innerWidth <= 768 ? '40px 1fr' : '80px 1fr';
-                grid.setAttribute('style', `grid-template-columns: ${columns} !important;`);
             }
         }
         
