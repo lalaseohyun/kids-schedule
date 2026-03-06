@@ -1737,7 +1737,7 @@
                                             <div class="event-name" style="font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">${event.name || ''}</div>
                                             <div class="event-time" style="font-size: 16px; margin-bottom: 12px; text-align: center; font-weight: 500;">${formatTimeRange(event.startTime, event.endTime)}</div>
                                             ${event.teacher ? `<div class="event-details" style="font-size: 14px; margin-top: 6px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
-                                            ${event.contact ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; text-align: center;"><a href="tel:${event.contact}" onclick="event.stopPropagation();" style="color: inherit; text-decoration: none;">📞 ${event.contact}</a></div>` : ''}
+                                            ${event.contact ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; text-align: center;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="event.stopPropagation();" style="color: inherit; text-decoration: none;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
                                             ${event.memo ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; line-height: 1.6; text-align: center; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
                                         </div>
                                     `;
@@ -1937,9 +1937,8 @@
             document.getElementById('eventStart').value = event.startTime || '';
             document.getElementById('eventEnd').value = event.endTime || '';
             document.getElementById('eventTeacher').value = event.teacher || '';
-            // 연락처에서 010- 제거하고 표시
-            const contactValue = event.contact ? event.contact.replace('010-', '') : '';
-            document.getElementById('eventContact').value = contactValue;
+            // 연락처는 그대로 표시 (010- 포함)
+            document.getElementById('eventContact').value = event.contact ? event.contact.replace('010-', '') : '';
             document.getElementById('eventMemo').value = event.memo || '';
             
             // 반복 일정인지 확인 (같은 이름, 같은 시간이 다른 요일에 있는지)
