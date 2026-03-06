@@ -1382,11 +1382,18 @@
             }
 
             // Firebase 동기화 시도
-            await syncFromFirebase(nickname, phone);
+            const synced = await syncFromFirebase(nickname, phone);
+            console.log('🔄 동기화 결과:', synced);
 
             if (validateUser(nickname, phone)) {
                 currentUser = { nickname, phone };
                 localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+                
+                // Firebase 동기화 성공 시 데이터 다시 로드
+                if (synced) {
+                    loadData();
+                }
+                
                 showMain();
             } else {
                 alert('등록되지 않은 사용자입니다.');
