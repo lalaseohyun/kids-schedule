@@ -219,7 +219,7 @@
             border-right: 1px solid #e0e0e0;
             border-bottom: 1px solid #e0e0e0;
             background: #fafafa;
-            font-size: 14px;
+            font-size: 18px;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -1616,7 +1616,7 @@
                 if (currentDayFilter === 'all') {
                     html += `<div class="time-label" style="height: 40px; min-height: 40px; font-size: 9px;">${displayLabel}</div>`;
                 } else {
-                    html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 9px; display: flex; align-items: center; justify-content: center;">${displayLabel}</div>`;
+                    html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 14px; display: flex; align-items: center; justify-content: center; font-weight: 600;">${displayLabel}</div>`;
                 }
                 
                 days.forEach(day => {
@@ -1711,11 +1711,11 @@
                                              draggable="false"
                                              style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: ${eventHeight}px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 4px;" 
                                              onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
-                                            <div class="event-name" style="font-size: 16px; font-weight: 700; margin-bottom: 8px; text-align: center;">${event.name || ''}</div>
-                                            <div class="event-time" style="font-size: 14px; margin-bottom: 8px; text-align: center;">${formatTimeRange(event.startTime, event.endTime)}</div>
-                                            ${event.teacher ? `<div class="event-details" style="font-size: 13px; margin-top: 6px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
-                                            ${event.contact ? `<div class="event-details" style="font-size: 13px; margin-top: 4px; text-align: center;">📞 ${event.contact}</div>` : ''}
-                                            ${event.memo ? `<div class="event-details" style="font-size: 13px; margin-top: 4px; line-height: 1.4; text-align: center;">📝 ${event.memo}</div>` : ''}
+                                            <div class="event-name" style="font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">${event.name || ''}</div>
+                                            <div class="event-time" style="font-size: 16px; margin-bottom: 12px; text-align: center; font-weight: 500;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                            ${event.teacher ? `<div class="event-details" style="font-size: 14px; margin-top: 6px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
+                                            ${event.contact ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; text-align: center;">📞 ${event.contact}</div>` : ''}
+                                            ${event.memo ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; line-height: 1.6; text-align: center; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
                                         </div>
                                     `;
                                 });
@@ -2107,14 +2107,17 @@
         
         // 반복 일정 수정 옵션 표시
         function showRepeatingEditOptions(userKey, name, startTime, endTime, teacher, contact, memo) {
+            // 전역 변수에 데이터 저장
+            window.editData = { userKey, name, startTime, endTime, teacher, contact, memo };
+            
             const confirmHtml = `
                 <div style="text-align: center;">
                     <p style="margin-bottom: 20px; font-size: 16px;">이 일정은 반복 일정입니다.</p>
-                    <button onclick="editOnlyThis('${userKey}', '${name}', '${startTime}', '${endTime}', '${teacher}', '${contact}', '${memo}')" 
+                    <button onclick="editOnlyThisClick()" 
                             style="width: 100%; padding: 12px; margin-bottom: 10px; background: #000; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
                         이 일정만 수정
                     </button>
-                    <button onclick="editAllRepeating('${userKey}', '${name}', '${startTime}', '${endTime}', '${teacher}', '${contact}', '${memo}')" 
+                    <button onclick="editAllRepeatingClick()" 
                             style="width: 100%; padding: 12px; background: #fff; color: #000; border: 1px solid #000; border-radius: 8px; font-size: 16px; cursor: pointer;">
                         모든 반복 일정 수정
                     </button>
@@ -2122,6 +2125,18 @@
             `;
             
             showAlert('🔁 반복 일정 수정', confirmHtml);
+        }
+        
+        // 이 일정만 수정 (클릭 핸들러)
+        function editOnlyThisClick() {
+            const data = window.editData;
+            editOnlyThis(data.userKey, data.name, data.startTime, data.endTime, data.teacher, data.contact, data.memo);
+        }
+        
+        // 모든 반복 일정 수정 (클릭 핸들러)
+        function editAllRepeatingClick() {
+            const data = window.editData;
+            editAllRepeating(data.userKey, data.name, data.startTime, data.endTime, data.teacher, data.contact, data.memo);
         }
         
         // 이 일정만 수정
