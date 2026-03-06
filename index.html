@@ -1493,7 +1493,7 @@
                 // 상세보기 높이
                 const detailViewHeight = periodHeights[idx] || 40;
                 
-                // 왼쪽 라벨
+                // 왼쪽 라벨 - 높이 통일
                 if (currentDayFilter === 'all') {
                     html += `<div class="time-label" style="height: 40px; min-height: 40px; font-size: 9px;">${displayLabel}</div>`;
                 } else {
@@ -1504,7 +1504,7 @@
                     const dayEscaped = day.replace(/'/g, "\\'");
                     
                     if (currentDayFilter === 'all') {
-                        // 전체 보기
+                        // 전체 보기 - 40px 고정
                         if (isLunch && day !== '토') {
                             // 점심시간 - 토요일 제외하고 클릭 불가, 시간만 표시
                             html += `<div class="time-slot" style="${slotHeight} cursor: default; background: #fafafa; display: flex; align-items: center; justify-content: center;">
@@ -1547,10 +1547,8 @@
                             });
                         }
                     } else {
-                        // 상세 보기
-                        const slotStyleDetail = currentDayFilter !== 'all' 
-                            ? `height: ${detailViewHeight}px; min-height: ${detailViewHeight}px;` 
-                            : slotHeight;
+                        // 상세 보기 - detailViewHeight로 통일
+                        const slotStyleDetail = `height: ${detailViewHeight}px; min-height: ${detailViewHeight}px;`;
                             
                         if (isLunch && day !== '토') {
                             // 점심시간 - 토요일 제외하고 클릭 불가, 시간만 표시
