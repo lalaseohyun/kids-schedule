@@ -1629,7 +1629,7 @@
                             html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
                         } else {
                             // 방과후 시간
-                            html += `<div class="time-slot" style="min-height: 50px; height: 50px;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
+                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
                         }
                         
                         // 해당 시간대의 일정 렌더링 (점심시간 제외)
