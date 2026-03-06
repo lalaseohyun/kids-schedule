@@ -633,82 +633,74 @@
         }
 
         @media (max-width: 768px) {
-            /* 스마트폰 */
+            /* 스마트폰 - 강제 적용 */
+            body {
+                font-size: 10px !important;
+            }
+            
             .calendar-container {
-                padding: 0;
-                max-height: calc(100vh - 56px);
+                padding: 0 !important;
+                max-height: calc(100vh - 56px) !important;
             }
             
             .calendar-grid {
-                min-width: 100%;
-                grid-template-columns: 45px repeat(5, 1fr);
-                font-size: 10px;
+                min-width: 100% !important;
+                grid-template-columns: 45px repeat(5, 1fr) !important;
+                font-size: 10px !important;
             }
             
             .day-header {
-                padding: 6px 2px;
-                font-size: 11px;
+                padding: 6px 2px !important;
+                font-size: 11px !important;
             }
             
             .time-label {
-                font-size: 9px;
-                padding: 3px 1px;
+                font-size: 9px !important;
+                padding: 3px 1px !important;
             }
             
             .time-slot {
-                min-height: 50px;
-                height: 50px;
-                font-size: 9px;
+                min-height: 50px !important;
+                height: 50px !important;
+                font-size: 9px !important;
             }
             
             .event {
-                padding: 2px 3px;
-                font-size: 9px;
+                padding: 2px 3px !important;
+                font-size: 9px !important;
             }
             
             .event-name {
-                font-size: 9px;
-                margin-bottom: 1px;
+                font-size: 9px !important;
+                margin-bottom: 1px !important;
             }
             
             .event-time {
-                font-size: 7px;
+                font-size: 7px !important;
             }
             
             .event-details {
-                font-size: 8px;
-                margin-top: 2px;
+                font-size: 8px !important;
+                margin-top: 2px !important;
             }
 
             .modal-content {
-                margin: 10px;
-                max-height: 90vh;
-                overflow-y: auto;
+                margin: 10px !important;
+                max-height: 90vh !important;
+                overflow-y: auto !important;
             }
             
             .header {
-                padding: 10px 12px;
+                padding: 10px 12px !important;
             }
             
             .header-title {
-                font-size: 14px;
+                font-size: 14px !important;
             }
             
             .logout-btn {
-                font-size: 10px;
-                padding: 4px 8px;
-            }
-            
-            /* 40분 교시 높이 줄이기 */
-            .calendar-grid [style*="height: 70px"] {
-                height: 55px !important;
-                min-height: 55px !important;
-            }
-            
-            /* 점심시간 높이 줄이기 */
-            .calendar-grid [style*="height: 40px"] {
-                height: 30px !important;
-                min-height: 30px !important;
+                font-size: 10px !important;
+                padding: 4px 8px !important;
             }
         }
         
