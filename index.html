@@ -1481,9 +1481,14 @@
                 // 점심시간은 높이 줄이기, 40분 단위 교시는 조금 줄이기
                 const isLunch = period.period === '점심';
                 const is40MinClass = period.period && period.period.includes('교시') && (timeToMinutes(period.end) - timeToMinutes(period.start)) === 40;
-                const slotHeight = isLunch ? 'height: 40px; min-height: 40px;' : (is40MinClass ? 'height: 70px; min-height: 70px;' : 'height: 80px; min-height: 80px;');
+                const slotHeight = isLunch ? 'height: 30px; min-height: 30px;' : (is40MinClass ? 'height: 55px; min-height: 55px;' : 'height: 50px; min-height: 50px;');
                 
-                html += `<div class="time-label" style="${isLunch ? 'height: 40px; min-height: 40px;' : (is40MinClass ? 'height: 70px; min-height: 70px;' : '')}">${displayLabel}</div>`;
+                // 점심시간 왼쪽 라벨은 토요일만 보이게
+                if (isLunch) {
+                    html += `<div class="time-label" style="height: 30px; min-height: 30px; font-size: 9px;">${displayLabel}</div>`;
+                } else {
+                    html += `<div class="time-label" style="${is40MinClass ? 'height: 55px; min-height: 55px;' : 'height: 50px; min-height: 50px;'} font-size: 9px;">${displayLabel}</div>`;
+                }
                 
                 days.forEach(day => {
                     const dayEscaped = day.replace(/'/g, "\\'");
@@ -1503,10 +1508,10 @@
                             html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
                         } else {
                             // 방과후 시간
-                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
+                            html += `<div class="time-slot" style="min-height: 50px; height: 50px;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
                         }
                         
-                        // 해당 시간대의 일정 렌더링
+                        // 해당 시간대의 일정 렌더링 (점심시간 제외)
                         if (!(isLunch && day !== '토')) {
                             const daySchedules = schedules[day] || [];
                             const relevantEvents = getEventsForPeriod(daySchedules, period, allPeriods);
@@ -1518,10 +1523,10 @@
                                 html += `
                                     <div class="event" 
                                          draggable="false"
-                                         style="position: absolute; top: ${topOffset}%; left: 2px; right: 2px; height: ${heightPx}px; background: ${bgColor}; cursor: pointer; padding: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px;" 
+                                         style="position: absolute; top: ${topOffset}%; left: 2px; right: 2px; height: ${heightPx}px; background: ${bgColor}; cursor: pointer; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" 
                                          onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
-                                        <div class="event-name">${event.name || ''}</div>
-                                        <div class="event-time">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                        <div class="event-name" style="font-size: 10px; font-weight: 600; margin-bottom: 1px; text-align: center; line-height: 1.2;">${event.name || ''}</div>
+                                        <div class="event-time" style="font-size: 8px; opacity: 0.8; text-align: center;">${formatTimeRange(event.startTime, event.endTime)}</div>
                                     </div>
                                 `;
                             });
@@ -1631,11 +1636,12 @@
                             pStart = timeToMinutes(p.start);
                             pEnd = timeToMinutes(p.end);
                             const pDuration = pEnd - pStart;
-                            pHeight = pDuration === 40 ? 70 : (p.period === '점심' ? 40 : 80);
+                            // 모바일 최적화 높이
+                            pHeight = pDuration === 40 ? 55 : (p.period === '점심' ? 30 : 50);
                         } else {
                             pStart = p.hour * 60;
                             pEnd = (p.hour + 1) * 60;
-                            pHeight = 80;
+                            pHeight = 50;
                         }
                         
                         // 일정이 이 period와 겹치는 부분 계산
