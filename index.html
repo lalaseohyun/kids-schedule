@@ -233,7 +233,7 @@
 
         .time-slot {
             border-right: 1px solid #e0e0e0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: none;
             min-height: 80px;
             height: 80px;
             position: relative;
@@ -657,8 +657,8 @@
             }
             
             .time-slot {
-                min-height: 50px !important;
-                height: 50px !important;
+                min-height: 40px !important;
+                height: 40px !important;
             }
             
             .event-name {
@@ -1444,17 +1444,12 @@
                 const label = period.period || `${period.hour}:00`;
                 const displayLabel = period.hour ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`) : period.period;
                 
-                // 점심시간은 높이 줄이기, 40분 단위 교시는 조금 줄이기
+                // 모든 칸 40px로 통일
                 const isLunch = period.period === '점심';
-                const is40MinClass = period.period && period.period.includes('교시') && (timeToMinutes(period.end) - timeToMinutes(period.start)) === 40;
-                const slotHeight = isLunch ? 'height: 30px; min-height: 30px;' : (is40MinClass ? 'height: 55px; min-height: 55px;' : 'height: 50px; min-height: 50px;');
+                const slotHeight = 'height: 40px; min-height: 40px;';
                 
-                // 점심시간 왼쪽 라벨은 토요일만 보이게
-                if (isLunch) {
-                    html += `<div class="time-label" style="height: 30px; min-height: 30px; font-size: 9px;">${displayLabel}</div>`;
-                } else {
-                    html += `<div class="time-label" style="${is40MinClass ? 'height: 55px; min-height: 55px;' : 'height: 50px; min-height: 50px;'} font-size: 9px;">${displayLabel}</div>`;
-                }
+                // 왼쪽 라벨
+                html += `<div class="time-label" style="height: 40px; min-height: 40px; font-size: 9px;">${displayLabel}</div>`;
                 
                 days.forEach(day => {
                     const dayEscaped = day.replace(/'/g, "\\'");
@@ -1482,15 +1477,20 @@
                             const daySchedules = schedules[day] || [];
                             const relevantEvents = getEventsForPeriod(daySchedules, period, allPeriods);
                             
-                            relevantEvents.forEach(({ event, eventIdx, topOffset, heightPx }) => {
+                            relevantEvents.forEach(({ event, eventIdx, topOffset, heightPx }, renderIdx) => {
                                 const subjectColors = appData.subjectColors[userKey] || {};
                                 const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
+                                
+                                // z-index를 높게 해서 나중 일정이 위로
+                                const zIndex = 10 + renderIdx;
 
                                 html += `
                                     <div class="event" 
                                          draggable="false"
-                                         style="position: absolute; top: ${topOffset}%; left: 2px; right: 2px; height: ${heightPx}px; background: ${bgColor}; cursor: pointer; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" 
-                                         onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
+                                         style="position: absolute; top: ${topOffset}%; left: 2px; right: 2px; height: ${heightPx}px; background: ${bgColor}; cursor: pointer; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); z-index: ${zIndex}; border: none;" 
+                                         onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})"
+                                         onmouseenter="this.style.zIndex = 100"
+                                         onmouseleave="this.style.zIndex = ${zIndex}">
                                         <div class="event-name" style="font-size: 10px; font-weight: 600; margin-bottom: 1px; text-align: center; line-height: 1.2;">${event.name || ''}</div>
                                         <div class="event-time" style="font-size: 8px; opacity: 0.8; text-align: center;">${formatTimeRange(event.startTime, event.endTime)}</div>
                                     </div>
@@ -1597,13 +1597,11 @@
                         if (p.period) {
                             pStart = timeToMinutes(p.start);
                             pEnd = timeToMinutes(p.end);
-                            const pDuration = pEnd - pStart;
-                            // 모바일 최적화 높이
-                            pHeight = pDuration === 40 ? 55 : (p.period === '점심' ? 30 : 50);
+                            pHeight = 40; // 모두 40px
                         } else {
                             pStart = p.hour * 60;
                             pEnd = (p.hour + 1) * 60;
-                            pHeight = 50;
+                            pHeight = 40;
                         }
                         
                         // 일정이 이 period와 겹치는 부분 계산
