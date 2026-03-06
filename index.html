@@ -2546,7 +2546,7 @@
         // 커스텀 알림 함수
         function showAlert(title, message) {
             document.getElementById('alertTitle').textContent = title;
-            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertMessage').innerHTML = message; // HTML 렌더링
             document.getElementById('alertModal').style.display = 'flex';
         }
         
