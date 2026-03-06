@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="시간표">
+    <title>시간표</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #ffffff;
+            color: #000000;
+            overflow-x: hidden;
+        }
+
+        .login-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #000;
+        }
+
+        .login-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #000;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #000;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #000;
+            border: 1px solid #000;
+        }
+
+        /* 메인 화면 */
+        .main-screen {
+            display: none;
+        }
+
+        .header {
+            background: #000;
+            color: #fff;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .logout-btn {
+            background: transparent;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .child-selector {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            margin-top: 8px;
+            min-width: 220px;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .child-selector.show {
+            display: block;
+        }
+        
+        .child-option {
+            padding: 14px 16px;
+            color: #000;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        
+        .child-option:hover {
+            background: #f5f5f5;
+        }
+        
+        .child-option.active {
+            background: #e8e8e8;
+            font-weight: 600;
+        }
+        
+        .child-option:last-child {
+            border-bottom: none;
+        }
+        
+        .add-child-option {
+            color: #4F46E5;
+            font-weight: 600;
+            border-top: 2px solid #e5e7eb;
+        }
+
+        .calendar-container {
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: 60px repeat(5, 1fr);
+            min-width: 700px;
+            border-left: 1px solid #e0e0e0;
+        }
+
+        .calendar-header {
+            display: contents;
+        }
+
+        .day-header {
+            padding: 16px 8px;
+            text-align: center;
+            font-weight: 600;
+            border-right: 1px solid #e0e0e0;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .day-header:hover {
+            background: #e8e8e8;
+        }
+        
+        .day-header.active {
+            background: #000;
+            color: #fff;
+        }
+
+        .time-label {
+            padding: 0 8px;
+            text-align: right;
+            font-size: 11px;
+            color: #666;
+            border-right: 1px solid #e0e0e0;
+            position: relative;
+            top: -8px;
+        }
+
+        .time-slot {
+            border-right: 1px solid #e0e0e0;
+            border-bottom: 1px solid #f0f0f0;
+            min-height: 80px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .time-slot:hover {
+            background: #f9f9f9;
+        }
+
+        .event {
+            position: absolute;
+            left: 2px;
+            right: 2px;
+            background: #000;
+            color: #000;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 13px;
+            overflow: hidden;
+            cursor: move;
+            user-select: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .event:active {
+            opacity: 0.8;
+        }
+        
+        .event.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+        
+        .time-slot.drag-over {
+            background: #e8f4f8;
+            border: 2px dashed #4a90e2;
+        }
+
+        .event-name {
+            font-weight: 600;
+            margin-bottom: 3px;
+            font-size: 14px;
+        }
+
+        .event-time {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+
+        .event-details {
+            font-size: 11px;
+            margin-top: 3px;
+            opacity: 0.9;
+        }
+
+        .color-picker {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 0;
+            margin: 10px 0;
+        }
+
+        .color-option {
+            width: 100%;
+            height: 36px;
+            border-radius: 0;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.05);
+            z-index: 1;
+        }
+
+        .color-option.selected {
+            border-color: #000;
+            transform: scale(1.05);
+            z-index: 2;
+        }
+
+        .event-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .event-time {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+
+        .event-details {
+            font-size: 10px;
+            margin-top: 2px;
+            opacity: 0.9;
+        }
+
+        /* 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: #fff;
+            margin: 40px auto;
+            max-width: 500px;
+            border-radius: 12px;
+            padding: 30px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .delete-btn {
+            background: #dc2626;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: #000;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 99;
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        .grade-selector {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .grade-selector label {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .grade-selector select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 15px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        /* 확인 모달 */
+        .confirm-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .confirm-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            margin: 20px;
+            text-align: center;
+        }
+        
+        .confirm-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #000;
+        }
+        
+        .confirm-message {
+            font-size: 16px;
+            margin-bottom: 25px;
+            color: #555;
+        }
+        
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .confirm-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .confirm-yes {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .confirm-no {
+            background: #e5e7eb;
+            color: #000;
+        }
+        
+        /* 알림 모달 */
+        .alert-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .alert-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            margin: 20px;
+            text-align: center;
+        }
+        
+        .alert-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #000;
+        }
+        
+        .alert-message {
+            font-size: 16px;
+            margin-bottom: 25px;
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        .alert-button {
+            width: 100%;
+            padding: 12px;
+            background: #000;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* 설정 모달 */
+        .settings-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .settings-section:last-child {
+            border-bottom: none;
+        }
+        
+        .settings-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #000;
+        }
+        
+        .child-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .child-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        
+        .child-info {
+            flex: 1;
+        }
+        
+        .child-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .child-grade {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .install-section {
+            text-align: center;
+            padding: 20px;
+            background: #f0f9ff;
+            border-radius: 8px;
+        }
+        
+        .install-section p {
+            margin-bottom: 15px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .calendar-container {
+                padding: 0;
+            }
+            
+            .calendar-grid {
+                min-width: 100%;
+                grid-template-columns: 50px repeat(5, minmax(70px, 1fr));
+            }
+            
+            .day-header {
+                padding: 12px 4px;
+                font-size: 13px;
+            }
+            
+            .time-label {
+                font-size: 10px;
+                padding: 0 4px;
+            }
+            
+            .event {
+                padding: 4px 6px;
+                font-size: 12px;
+            }
+            
+            .event-name {
+                font-size: 13px;
+            }
+            
+            .event-details {
+                font-size: 10px;
+            }
+
+            .modal-content {
+                margin: 20px;
+            }
+            
+            .header-title {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 로그인 화면 -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-card">
+            <h1 class="login-title">시간표</h1>
+            <div class="input-group">
+                <label>닉네임</label>
+                <input type="text" id="loginNickname" placeholder="홍길동">
+            </div>
+            <div class="input-group">
+                <label>휴대폰 뒷자리 4자리</label>
+                <input type="text" id="loginPhone" maxlength="4" placeholder="1234">
+            </div>
+            <button class="btn" onclick="handleLogin()">로그인</button>
+            <button class="btn btn-secondary" onclick="showRegister()">회원가입</button>
+        </div>
+    </div>
+
+    <!-- 회원가입 화면 -->
+    <div id="registerScreen" class="login-screen" style="display: none;">
+        <div class="login-card">
+            <h1 class="login-title">회원가입</h1>
+            <div class="input-group">
+                <label>닉네임</label>
+                <input type="text" id="regNickname" placeholder="홍길동">
+            </div>
+            <div class="input-group">
+                <label>휴대폰 뒷자리 4자리</label>
+                <input type="text" id="regPhone" maxlength="4" placeholder="1234">
+            </div>
+            <div class="input-group">
+                <label>자녀 이름</label>
+                <input type="text" id="childName" placeholder="김철수">
+            </div>
+            <div class="input-group">
+                <label>학년</label>
+                <select id="childGrade">
+                    <option value="1">1학년</option>
+                    <option value="2">2학년</option>
+                    <option value="3">3학년</option>
+                    <option value="4">4학년</option>
+                    <option value="5">5학년</option>
+                    <option value="6">6학년</option>
+                </select>
+            </div>
+            <button class="btn" onclick="handleRegister()">가입하기</button>
+            <button class="btn btn-secondary" onclick="showLogin()">로그인으로</button>
+        </div>
+    </div>
+
+    <!-- 메인 화면 -->
+    <div id="mainScreen" class="main-screen">
+        <div class="header">
+            <div class="header-title" id="headerTitle" onclick="toggleChildSelector(event)">
+                시간표
+                <div class="child-selector" id="childSelector"></div>
+            </div>
+            <button class="logout-btn" onclick="handleLogout()">로그아웃</button>
+        </div>
+
+        <div class="calendar-container">
+            <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <button class="fab" onclick="openAddModal()">+</button>
+    </div>
+
+    <!-- 일정 추가/수정 모달 -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">일정 추가</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+
+            <div class="input-group">
+                <label>과목명 / 학원명</label>
+                <input type="text" id="eventName" placeholder="수학, 영어학원 등">
+            </div>
+
+            <div class="input-group">
+                <label>색상 선택</label>
+                <div class="color-picker" id="colorPicker">
+                    <div class="color-option" style="background: #F4C6C6;" data-color="#F4C6C6"></div>
+                    <div class="color-option" style="background: #FFE5D0;" data-color="#FFE5D0"></div>
+                    <div class="color-option" style="background: #F0E5D8;" data-color="#F0E5D8"></div>
+                    <div class="color-option" style="background: #FFF4D0;" data-color="#FFF4D0"></div>
+                    <div class="color-option" style="background: #F5F0D0;" data-color="#F5F0D0"></div>
+                    <div class="color-option" style="background: #D9E4D8;" data-color="#D9E4D8"></div>
+                    <div class="color-option" style="background: #D0E7E8;" data-color="#D0E7E8"></div>
+                    <div class="color-option" style="background: #C8DCE8;" data-color="#C8DCE8"></div>
+                    <div class="color-option" style="background: #E0E0F0;" data-color="#E0E0F0"></div>
+                    <div class="color-option" style="background: #DCDCDC;" data-color="#DCDCDC"></div>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="repeatCheck" onchange="toggleRepeat()">
+                <label for="repeatCheck">반복 일정</label>
+            </div>
+
+            <div id="singleDayGroup" class="input-group">
+                <label>요일</label>
+                <select id="eventDay">
+                    <option value="월">월요일</option>
+                    <option value="화">화요일</option>
+                    <option value="수">수요일</option>
+                    <option value="목">목요일</option>
+                    <option value="금">금요일</option>
+                </select>
+            </div>
+
+            <div id="repeatDaysGroup" style="display: none;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; font-size: 14px;">반복 요일 선택</label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" value="월" class="repeat-day"> 월
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" value="화" class="repeat-day"> 화
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" value="수" class="repeat-day"> 수
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" value="목" class="repeat-day"> 목
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" value="금" class="repeat-day"> 금
+                    </label>
+                </div>
+            </div>
+
+            <div class="input-group" style="margin-top: 20px;">
+                <label>시작 시간</label>
+                <input type="time" id="eventStart">
+            </div>
+
+            <div class="input-group">
+                <label>종료 시간</label>
+                <input type="time" id="eventEnd">
+            </div>
+
+            <div class="input-group">
+                <label>담당 선생님 (선택)</label>
+                <input type="text" id="eventTeacher" placeholder="김선생님">
+            </div>
+
+            <div class="input-group">
+                <label>연락처 (선택)</label>
+                <input type="tel" id="eventContact" placeholder="010-1234-5678">
+            </div>
+
+            <div class="input-group">
+                <label>기타 사항 (선택)</label>
+                <textarea id="eventMemo" rows="3" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;" placeholder="준비물, 특이사항 등"></textarea>
+            </div>
+
+            <button class="btn" id="saveEventBtn">저장</button>
+            <button class="delete-btn" id="deleteBtn" style="display: none;">삭제</button>
+        </div>
+    </div>
+
+    <!-- 삭제 확인 모달 -->
+    <div id="confirmModal" class="confirm-modal">
+        <div class="confirm-content">
+            <div class="confirm-title">⚠️ 일정 삭제</div>
+            <div class="confirm-message">이 일정을 삭제하시겠습니까?</div>
+            <div class="confirm-buttons">
+                <button class="confirm-no" id="confirmNo">취소</button>
+                <button class="confirm-yes" id="confirmYes">삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 모달 -->
+    <div id="alertModal" class="alert-modal">
+        <div class="alert-content">
+            <div class="alert-title" id="alertTitle">알림</div>
+            <div class="alert-message" id="alertMessage">메시지</div>
+            <button class="alert-button" id="alertButton">확인</button>
+        </div>
+    </div>
+
+    <!-- 자녀 추가 모달 -->
+    <div id="addChildModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">시간표 추가</h2>
+                <button class="close-btn" onclick="closeAddChild()">&times;</button>
+            </div>
+
+            <div class="input-group">
+                <label>이름</label>
+                <input type="text" id="newChildName" placeholder="예: 김철수">
+            </div>
+
+            <div class="input-group">
+                <label>학년</label>
+                <select id="newChildGrade">
+                    <option value="1">1학년</option>
+                    <option value="2">2학년</option>
+                    <option value="3">3학년</option>
+                    <option value="4">4학년</option>
+                    <option value="5">5학년</option>
+                    <option value="6">6학년</option>
+                </select>
+            </div>
+
+            <button class="btn" onclick="addChild()">추가</button>
+        </div>
+    </div>
+
+    <!-- 설정 모달 -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">설정</h2>
+                <button class="close-btn" onclick="closeSettings()">&times;</button>
+            </div>
+
+            <div class="settings-section">
+                <h3>👶 자녀 관리</h3>
+                <div class="child-list" id="childList"></div>
+                <button class="btn" style="margin-top: 10px;" onclick="showAddChild()">+ 자녀 추가</button>
+            </div>
+
+            <div class="settings-section">
+                <h3>🔐 비밀번호 변경</h3>
+                <div class="input-group">
+                    <label>새 휴대폰 뒷자리 4자리</label>
+                    <input type="text" id="newPassword" maxlength="4" placeholder="1234">
+                </div>
+                <button class="btn" onclick="changePassword()">비밀번호 변경</button>
+            </div>
+
+            <div class="settings-section">
+                <h3>📱 홈화면에 추가</h3>
+                <div class="install-section">
+                    <p><strong>iPhone (Safari):</strong><br>하단 공유 버튼 → "홈 화면에 추가"</p>
+                    <p><strong>Android (Chrome):</strong><br>메뉴(⋮) → "홈 화면에 추가"</p>
+                    <button class="btn" onclick="showInstallGuide()">설치 방법 보기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 자녀 추가 모달 -->
+    <div id="addChildModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">자녀 추가</h2>
+                <button class="close-btn" onclick="closeAddChild()">&times;</button>
+            </div>
+
+            <div class="input-group">
+                <label>자녀 이름</label>
+                <input type="text" id="newChildName" placeholder="예: 김철수">
+            </div>
+
+            <div class="input-group">
+                <label>학년</label>
+                <select id="newChildGrade">
+                    <option value="1">1학년</option>
+                    <option value="2">2학년</option>
+                    <option value="3">3학년</option>
+                    <option value="4">4학년</option>
+                    <option value="5">5학년</option>
+                    <option value="6">6학년</option>
+                </select>
+            </div>
+
+            <button class="btn" onclick="addChild()">추가</button>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'scheduleApp';
+        const USER_KEY = 'currentUser';
+
+        let appData = {
+            users: [],
+            schedules: {},
+            subjectColors: {} // 과목별 색상 저장
+        };
+
+        let currentUser = null;
+        let editingEvent = null;
+        let selectedColor = '#F4C6C6'; // 기본 색상
+        let currentDayFilter = 'all'; // 현재 요일 필터
+        let currentChildId = null; // 현재 선택된 자녀 ID
+        
+        // 드래그 앤 드롭 관련 변수
+        let draggedEvent = null;
+        let draggedEventElement = null;
+        
+        // 24시간 형식을 12시간 형식으로 변환
+        function formatTime12Hour(time24) {
+            if (!time24) return '';
+            const [hour, minute] = time24.split(':');
+            const h = parseInt(hour);
+            if (h === 0) return `12:${minute}`;
+            if (h <= 12) return `${h}:${minute}`;
+            return `${h - 12}:${minute}`;
+        }
+        
+        // 시간 범위를 12시간 형식으로 변환
+        function formatTimeRange(startTime, endTime) {
+            return `${formatTime12Hour(startTime)}-${formatTime12Hour(endTime)}`;
+        }
+        
+        // 시간 중복 체크 함수
+        function checkTimeOverlap(day, newStartTime, newEndTime, excludeIdx = -1) {
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            const daySchedules = appData.schedules[userKey]?.[day] || [];
+            
+            const newStart = timeToMinutes(newStartTime);
+            const newEnd = timeToMinutes(newEndTime);
+            
+            for (let i = 0; i < daySchedules.length; i++) {
+                if (i === excludeIdx) continue; // 수정 중인 일정은 제외
+                
+                const schedule = daySchedules[i];
+                const existingStart = timeToMinutes(schedule.startTime);
+                const existingEnd = timeToMinutes(schedule.endTime);
+                
+                // 시간 겹침 체크
+                if ((newStart < existingEnd && newEnd > existingStart)) {
+                    return {
+                        overlap: true,
+                        conflictName: schedule.name,
+                        conflictTime: `${formatTime12Hour(schedule.startTime)}-${formatTime12Hour(schedule.endTime)}`
+                    };
+                }
+            }
+            
+            return { overlap: false };
+        }
+        
+        // 시간을 분으로 변환 (비교용)
+        function timeToMinutes(time) {
+            const [hour, minute] = time.split(':').map(Number);
+            return hour * 60 + minute;
+        }
+
+        // 초기화
+        function init() {
+            loadData();
+            const saved = localStorage.getItem(USER_KEY);
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                if (validateUser(currentUser.nickname, currentUser.phone)) {
+                    showMain();
+                } else {
+                    showLogin();
+                }
+            }
+            
+            // 색상 선택기 이벤트
+            document.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedColor = this.dataset.color;
+                });
+            });
+            
+            // 저장 버튼 이벤트
+            document.getElementById('saveEventBtn').addEventListener('click', function() {
+                saveEvent();
+            });
+            
+            // 삭제 버튼 이벤트
+            document.getElementById('deleteBtn').addEventListener('click', function() {
+                console.log('Delete button clicked');
+                deleteEvent();
+            });
+            
+            // 확인 모달 버튼 이벤트
+            document.getElementById('confirmYes').addEventListener('click', function() {
+                confirmDelete();
+            });
+            
+            document.getElementById('confirmNo').addEventListener('click', function() {
+                console.log('Delete cancelled by user');
+                hideConfirmModal();
+            });
+            
+            // 알림 모달 버튼 이벤트
+            document.getElementById('alertButton').addEventListener('click', function() {
+                hideAlert();
+            });
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                appData = JSON.parse(saved);
+                
+                // 기존 데이터 마이그레이션 - subjectColors 필드 추가
+                if (!appData.subjectColors) {
+                    appData.subjectColors = {};
+                }
+                
+                // 모든 사용자에게 subjectColors 초기화
+                appData.users.forEach(user => {
+                    const userKey = `${user.nickname}-${user.phone}`;
+                    if (!appData.subjectColors[userKey]) {
+                        appData.subjectColors[userKey] = {};
+                    }
+                });
+                
+                saveData(); // 마이그레이션 결과 저장
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        function validateUser(nickname, phone) {
+            return appData.users.some(u => u.nickname === nickname && u.phone === phone);
+        }
+
+        function getUserInfo(nickname, phone) {
+            return appData.users.find(u => u.nickname === nickname && u.phone === phone);
+        }
+
+        // 로그인
+        function handleLogin() {
+            const nickname = document.getElementById('loginNickname').value.trim();
+            const phone = document.getElementById('loginPhone').value.trim();
+
+            if (!nickname || !phone) {
+                alert('닉네임과 휴대폰 뒷자리를 입력해주세요.');
+                return;
+            }
+
+            if (!/^\d{4}$/.test(phone)) {
+                alert('휴대폰 뒷자리 4자리를 정확히 입력해주세요.');
+                return;
+            }
+
+            if (validateUser(nickname, phone)) {
+                currentUser = { nickname, phone };
+                localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+                showMain();
+            } else {
+                alert('등록되지 않은 사용자입니다.');
+            }
+        }
+
+        // 회원가입
+        function handleRegister() {
+            const nickname = document.getElementById('regNickname').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+            const childName = document.getElementById('childName').value.trim();
+            const grade = document.getElementById('childGrade').value;
+
+            if (!nickname || !phone || !childName) {
+                alert('모든 항목을 입력해주세요.');
+                return;
+            }
+
+            if (!/^\d{4}$/.test(phone)) {
+                alert('휴대폰 뒷자리 4자리를 정확히 입력해주세요.');
+                return;
+            }
+
+            if (validateUser(nickname, phone)) {
+                alert('이미 가입되어 있습니다.\n로그인 화면으로 이동합니다.');
+                showLogin();
+                // 입력된 정보를 로그인 화면에 자동 입력
+                document.getElementById('loginNickname').value = nickname;
+                document.getElementById('loginPhone').value = phone;
+                return;
+            }
+
+            const childId = Date.now().toString(); // 고유 ID 생성
+            
+            appData.users.push({ 
+                nickname, 
+                phone, 
+                children: [{
+                    id: childId,
+                    name: childName,
+                    grade: grade
+                }]
+            });
+            
+            // 첫 자녀의 스케줄 초기화
+            appData.schedules[childId] = {
+                월: [], 화: [], 수: [], 목: [], 금: []
+            };
+            appData.subjectColors[childId] = {};
+            
+            saveData();
+
+            alert('회원가입이 완료되었습니다!');
+            showLogin();
+        }
+
+        function showLogin() {
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('registerScreen').style.display = 'none';
+            document.getElementById('mainScreen').style.display = 'none';
+        }
+
+        function showRegister() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('registerScreen').style.display = 'flex';
+            document.getElementById('mainScreen').style.display = 'none';
+        }
+
+        function showMain() {
+            const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
+            
+            // children 배열이 없으면 기존 데이터 마이그레이션
+            if (!userInfo.children && userInfo.childName) {
+                const childId = Date.now().toString();
+                userInfo.children = [{
+                    id: childId,
+                    name: userInfo.childName,
+                    grade: userInfo.grade || '1'
+                }];
+                
+                // 기존 스케줄을 새 childId로 이동
+                const oldKey = `${currentUser.nickname}-${currentUser.phone}`;
+                if (appData.schedules[oldKey]) {
+                    appData.schedules[childId] = appData.schedules[oldKey];
+                    delete appData.schedules[oldKey];
+                }
+                if (appData.subjectColors[oldKey]) {
+                    appData.subjectColors[childId] = appData.subjectColors[oldKey];
+                    delete appData.subjectColors[oldKey];
+                }
+                
+                saveData();
+            }
+            
+            // 첫 번째 자녀를 기본으로 선택
+            if (userInfo.children && userInfo.children.length > 0) {
+                currentChildId = userInfo.children[0].id;
+            }
+            
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('registerScreen').style.display = 'none';
+            document.getElementById('mainScreen').style.display = 'block';
+            
+            updateHeaderTitle();
+            renderCalendar();
+        }
+
+        function handleLogout() {
+            localStorage.removeItem(USER_KEY);
+            currentUser = null;
+            showLogin();
+        }
+
+        // 캘린더 렌더링
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            
+            // 안전한 데이터 접근
+            if (!appData.schedules[userKey]) {
+                appData.schedules[userKey] = {
+                    월: [], 화: [], 수: [], 목: [], 금: []
+                };
+            }
+            if (!appData.subjectColors[userKey]) {
+                appData.subjectColors[userKey] = {};
+            }
+            
+            const schedules = appData.schedules[userKey];
+
+            const hours = [];
+            for (let h = 9; h <= 18; h++) {
+                hours.push(h);
+            }
+
+            const allDays = ['월', '화', '수', '목', '금'];
+            const days = currentDayFilter === 'all' ? allDays : [currentDayFilter];
+
+            let html = '<div class="day-header"></div>';
+            
+            if (currentDayFilter === 'all') {
+                // 전체 보기 - 모든 요일 헤더
+                allDays.forEach(day => {
+                    html += `<div class="day-header" onclick="filterByDay('${day}')">${day}</div>`;
+                });
+            } else {
+                // 상세 보기 - 뒤로가기 + 선택된 요일
+                html += `<div class="day-header active" onclick="filterByDay('all')">← 전체</div>`;
+            }
+
+            hours.forEach(hour => {
+                const displayHour = hour <= 12 ? hour : hour - 12;
+                html += `<div class="time-label">${displayHour}:00</div>`;
+                
+                days.forEach(day => {
+                    const dayEscaped = day.replace(/'/g, "\\'");
+                    
+                    if (currentDayFilter === 'all') {
+                        // 전체 보기 - 간단한 일정 표시
+                        html += `<div class="time-slot" data-day="${day}" data-hour="${hour}" onclick="clickSlot('${dayEscaped}', ${hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${hour})" ondragleave="handleDragLeave(event)">`;
+                        
+                        const daySchedules = schedules[day] || [];
+                        daySchedules.forEach((event, idx) => {
+                            const startHour = parseInt(event.startTime.split(':')[0]);
+                            const startMin = parseInt(event.startTime.split(':')[1]);
+                            const endHour = parseInt(event.endTime.split(':')[0]);
+                            const endMin = parseInt(event.endTime.split(':')[1]);
+
+                            if (startHour === hour) {
+                                const topOffset = (startMin / 60) * 80;
+                                const duration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+                                const height = (duration / 60) * 80;
+                                
+                                const subjectColors = appData.subjectColors[userKey] || {};
+                                const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
+
+                                html += `
+                                    <div class="event" 
+                                         draggable="true"
+                                         style="top: ${topOffset}px; height: ${height}px; background: ${bgColor};" 
+                                         ondragstart="handleDragStart(event, '${dayEscaped}', ${idx})"
+                                         ondragend="handleDragEnd(event)"
+                                         onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${idx})">
+                                        <div class="event-name">${event.name || ''}</div>
+                                        <div class="event-time">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                    </div>
+                                `;
+                            }
+                        });
+                    } else {
+                        // 상세 보기 - 모든 정보 표시 (높이 자동 조정)
+                        html += `<div class="time-slot" style="min-height: auto; height: auto; padding: 10px 0;" data-day="${day}" data-hour="${hour}" onclick="clickSlot('${dayEscaped}', ${hour})">`;
+                        
+                        const daySchedules = schedules[day] || [];
+                        const hourSchedules = daySchedules.filter(event => {
+                            const startHour = parseInt(event.startTime.split(':')[0]);
+                            return startHour === hour;
+                        });
+                        
+                        if (hourSchedules.length > 0) {
+                            hourSchedules.forEach((event, localIdx) => {
+                                const idx = daySchedules.indexOf(event);
+                                const subjectColors = appData.subjectColors[userKey] || {};
+                                const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
+
+                                html += `
+                                    <div class="event" 
+                                         draggable="true"
+                                         style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: 60px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: move;" 
+                                         ondragstart="handleDragStart(event, '${dayEscaped}', ${idx})"
+                                         ondragend="handleDragEnd(event)"
+                                         onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${idx})">
+                                        <div class="event-name" style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">${event.name || ''}</div>
+                                        <div class="event-time" style="font-size: 14px; margin-bottom: 6px;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                        ${event.teacher ? `<div class="event-details" style="font-size: 13px; margin-top: 6px;">👨‍🏫 ${event.teacher}</div>` : ''}
+                                        ${event.contact ? `<div class="event-details" style="font-size: 13px; margin-top: 4px;">📞 ${event.contact}</div>` : ''}
+                                        ${event.memo ? `<div class="event-details" style="font-size: 13px; margin-top: 4px; line-height: 1.4;">📝 ${event.memo}</div>` : ''}
+                                    </div>
+                                `;
+                            });
+                        }
+                    }
+
+                    html += '</div>';
+                });
+            });
+
+            grid.innerHTML = html;
+            
+            // 그리드 컬럼 조정
+            if (currentDayFilter === 'all') {
+                grid.style.gridTemplateColumns = '60px repeat(5, 1fr)';
+            } else {
+                grid.style.gridTemplateColumns = '60px 1fr';
+            }
+        }
+
+        function clickSlot(day, hour) {
+            const daySelect = document.getElementById('eventDay');
+            if (daySelect) {
+                daySelect.value = day;
+            }
+            document.getElementById('eventStart').value = `${String(hour).padStart(2, '0')}:00`;
+            document.getElementById('eventEnd').value = `${String(hour + 1).padStart(2, '0')}:00`;
+            openAddModal();
+        }
+
+        function openAddModal() {
+            editingEvent = null;
+            document.getElementById('modalTitle').textContent = '일정 추가';
+            document.getElementById('eventName').value = '';
+            document.getElementById('eventTeacher').value = '';
+            document.getElementById('eventContact').value = '';
+            document.getElementById('eventMemo').value = '';
+            document.getElementById('repeatCheck').checked = false;
+            document.getElementById('repeatCheck').disabled = false; // 추가 모드에서는 활성화
+            document.getElementById('deleteBtn').style.display = 'none';
+            
+            // 첫 번째 색상 선택
+            selectedColor = '#F4C6C6';
+            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+            document.querySelector('.color-option').classList.add('selected');
+            
+            toggleRepeat();
+            document.getElementById('eventModal').style.display = 'block';
+        }
+
+        function editEvent(day, idx) {
+            const userKey = `${currentUser.nickname}-${currentUser.phone}`;
+            const event = appData.schedules[userKey][day][idx];
+            const subjectColors = appData.subjectColors[userKey] || {};
+            
+            editingEvent = { day, idx };
+            document.getElementById('modalTitle').textContent = '일정 수정';
+            document.getElementById('eventName').value = event.name || '';
+            
+            const daySelect = document.getElementById('eventDay');
+            if (daySelect) {
+                daySelect.value = day;
+            }
+            
+            document.getElementById('eventStart').value = event.startTime || '';
+            document.getElementById('eventEnd').value = event.endTime || '';
+            document.getElementById('eventTeacher').value = event.teacher || '';
+            document.getElementById('eventContact').value = event.contact || '';
+            document.getElementById('eventMemo').value = event.memo || '';
+            
+            // 수정 모드에서도 반복 체크 활성화
+            document.getElementById('repeatCheck').checked = false;
+            document.getElementById('repeatCheck').disabled = false;
+            
+            document.getElementById('deleteBtn').style.display = 'block';
+            
+            // 저장된 색상 선택
+            selectedColor = event.color || subjectColors[event.name] || '#F4C6C6';
+            document.querySelectorAll('.color-option').forEach(o => {
+                o.classList.remove('selected');
+                if (o.dataset.color === selectedColor) {
+                    o.classList.add('selected');
+                }
+            });
+            
+            toggleRepeat();
+            document.getElementById('eventModal').style.display = 'block';
+        }
+
+        function toggleRepeat() {
+            const isRepeat = document.getElementById('repeatCheck').checked;
+            document.getElementById('singleDayGroup').style.display = isRepeat ? 'none' : 'block';
+            document.getElementById('repeatDaysGroup').style.display = isRepeat ? 'block' : 'none';
+        }
+
+        function saveEvent() {
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            const name = document.getElementById('eventName').value.trim();
+            const startTime = document.getElementById('eventStart').value;
+            const endTime = document.getElementById('eventEnd').value;
+            const teacher = document.getElementById('eventTeacher').value.trim();
+            const contact = document.getElementById('eventContact').value.trim();
+            const memo = document.getElementById('eventMemo').value.trim();
+            const isRepeat = document.getElementById('repeatCheck').checked;
+
+            if (!name || !startTime || !endTime) {
+                showAlert('⚠️ 입력 오류', '필수 항목을 입력해주세요.');
+                return;
+            }
+
+            if (startTime >= endTime) {
+                showAlert('⚠️ 시간 오류', '종료 시간은 시작 시간보다 늦어야 합니다.');
+                return;
+            }
+
+            // 시간 중복 체크
+            if (editingEvent) {
+                // 수정 모드
+                if (isRepeat) {
+                    // 반복 일정으로 수정 시 각 요일 체크
+                    const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
+                    if (selectedDays.length === 0) {
+                        showAlert('⚠️ 선택 오류', '반복할 요일을 선택해주세요.');
+                        return;
+                    }
+                    
+                    for (const day of selectedDays) {
+                        const excludeIdx = (day === editingEvent.day) ? editingEvent.idx : -1;
+                        const overlapCheck = checkTimeOverlap(day, startTime, endTime, excludeIdx);
+                        if (overlapCheck.overlap) {
+                            showAlert('🚫 시간 중복', `${day}요일 ${overlapCheck.conflictTime}에\n"${overlapCheck.conflictName}" 일정과\n시간이 겹칩니다!`);
+                            return;
+                        }
+                    }
+                } else {
+                    // 단일 요일 수정
+                    const overlapCheck = checkTimeOverlap(editingEvent.day, startTime, endTime, editingEvent.idx);
+                    if (overlapCheck.overlap) {
+                        showAlert('🚫 시간 중복', `${overlapCheck.conflictTime}에\n"${overlapCheck.conflictName}" 일정과\n시간이 겹칩니다!`);
+                        return;
+                    }
+                }
+            } else {
+                // 추가 모드
+                if (isRepeat) {
+                    const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
+                    if (selectedDays.length === 0) {
+                        showAlert('⚠️ 선택 오류', '반복할 요일을 선택해주세요.');
+                        return;
+                    }
+                    
+                    for (const day of selectedDays) {
+                        const overlapCheck = checkTimeOverlap(day, startTime, endTime);
+                        if (overlapCheck.overlap) {
+                            showAlert('🚫 시간 중복', `${day}요일 ${overlapCheck.conflictTime}에\n"${overlapCheck.conflictName}" 일정과\n시간이 겹칩니다!`);
+                            return;
+                        }
+                    }
+                } else {
+                    const day = document.getElementById('eventDay').value;
+                    const overlapCheck = checkTimeOverlap(day, startTime, endTime);
+                    if (overlapCheck.overlap) {
+                        showAlert('🚫 시간 중복', `${overlapCheck.conflictTime}에\n"${overlapCheck.conflictName}" 일정과\n시간이 겹칩니다!`);
+                        return;
+                    }
+                }
+            }
+
+            // 과목별 색상 저장
+            if (!appData.subjectColors[userKey]) {
+                appData.subjectColors[userKey] = {};
+            }
+            appData.subjectColors[userKey][name] = selectedColor;
+
+            const eventData = { name, startTime, endTime, teacher, contact, memo, color: selectedColor };
+
+            if (editingEvent) {
+                // 수정 모드
+                if (isRepeat) {
+                    // 기존 일정 삭제
+                    appData.schedules[userKey][editingEvent.day].splice(editingEvent.idx, 1);
+                    
+                    // 선택한 요일들에 추가
+                    const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
+                    if (selectedDays.length === 0) {
+                        alert('반복할 요일을 선택해주세요.');
+                        return;
+                    }
+                    selectedDays.forEach(day => {
+                        appData.schedules[userKey][day].push({...eventData});
+                        appData.schedules[userKey][day].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                    });
+                } else {
+                    // 단일 요일 수정
+                    appData.schedules[userKey][editingEvent.day][editingEvent.idx] = eventData;
+                }
+            } else {
+                // 추가 모드
+                if (isRepeat) {
+                    const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
+                    if (selectedDays.length === 0) {
+                        alert('반복할 요일을 선택해주세요.');
+                        return;
+                    }
+                    selectedDays.forEach(day => {
+                        appData.schedules[userKey][day].push({...eventData});
+                        appData.schedules[userKey][day].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                    });
+                } else {
+                    const day = document.getElementById('eventDay').value;
+                    appData.schedules[userKey][day].push(eventData);
+                    appData.schedules[userKey][day].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                }
+            }
+
+            saveData();
+            closeModal();
+            renderCalendar();
+        }
+
+        function deleteEvent() {
+            console.log('=== DELETE EVENT START ===');
+            console.log('deleteEvent called');
+            console.log('editingEvent:', editingEvent);
+            console.log('editingEvent.day:', editingEvent?.day);
+            console.log('editingEvent.idx:', editingEvent?.idx);
+            
+            if (!editingEvent || !editingEvent.day || editingEvent.idx === undefined) {
+                console.error('Invalid editingEvent');
+                alert('삭제할 일정 정보가 올바르지 않습니다.');
+                return;
+            }
+            
+            // 커스텀 확인 모달 표시
+            showConfirmModal();
+        }
+        
+        function showConfirmModal() {
+            const modal = document.getElementById('confirmModal');
+            modal.style.display = 'flex';
+        }
+        
+        function hideConfirmModal() {
+            const modal = document.getElementById('confirmModal');
+            modal.style.display = 'none';
+        }
+        
+        function confirmDelete() {
+            console.log('Delete confirmed by user');
+            hideConfirmModal();
+            
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            console.log('UserKey:', userKey);
+            
+            try {
+                console.log('Attempting to delete from:', userKey, editingEvent.day, 'index:', editingEvent.idx);
+                console.log('Current schedules for', editingEvent.day, ':', appData.schedules[userKey][editingEvent.day]);
+                
+                // 해당 요일의 해당 일정만 삭제
+                const deleted = appData.schedules[userKey][editingEvent.day].splice(editingEvent.idx, 1);
+                console.log('Deleted item:', deleted);
+                console.log('Schedules after delete:', appData.schedules[userKey][editingEvent.day]);
+                
+                console.log('Saving data...');
+                saveData();
+                console.log('Data saved');
+                
+                console.log('Closing modal...');
+                closeModal();
+                console.log('Modal closed');
+                
+                console.log('Rendering calendar...');
+                renderCalendar();
+                console.log('Calendar rendered');
+                
+                console.log('=== DELETE EVENT COMPLETE ===');
+            } catch (error) {
+                console.error('Delete error:', error);
+                console.error('Error stack:', error.stack);
+                alert('삭제 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('eventModal').style.display = 'none';
+            editingEvent = null;
+        }
+
+        // 요일 필터
+        function filterByDay(day) {
+            currentDayFilter = day;
+            renderCalendar();
+        }
+
+        // 드래그 앤 드롭 핸들러
+        function handleDragStart(e, day, idx) {
+            e.stopPropagation();
+            draggedEvent = { day, idx };
+            draggedEventElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedEvent = null;
+            draggedEventElement = null;
+            
+            // 모든 드래그 오버 효과 제거
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+        }
+
+        function handleDragOver(e) {
+            if (!draggedEvent) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            
+            const slot = e.currentTarget;
+            if (!slot.classList.contains('drag-over')) {
+                slot.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, targetDay, targetHour) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('drag-over');
+            
+            if (!draggedEvent) return;
+
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            const sourceDay = draggedEvent.day;
+            const sourceIdx = draggedEvent.idx;
+            
+            // 같은 위치면 무시
+            if (sourceDay === targetDay && 
+                appData.schedules[userKey][sourceDay][sourceIdx].startTime.startsWith(String(targetHour).padStart(2, '0'))) {
+                return;
+            }
+            
+            // 원본 일정 가져오기
+            const originalEvent = appData.schedules[userKey][sourceDay][sourceIdx];
+            
+            // 시간 차이 계산
+            const oldStartHour = parseInt(originalEvent.startTime.split(':')[0]);
+            const oldStartMin = parseInt(originalEvent.startTime.split(':')[1]);
+            const oldEndHour = parseInt(originalEvent.endTime.split(':')[0]);
+            const oldEndMin = parseInt(originalEvent.endTime.split(':')[1]);
+            
+            const duration = (oldEndHour * 60 + oldEndMin) - (oldStartHour * 60 + oldStartMin);
+            
+            // 새 시간 설정 (같은 분 유지)
+            const newStartTime = `${String(targetHour).padStart(2, '0')}:${String(oldStartMin).padStart(2, '0')}`;
+            const newEndMinutes = targetHour * 60 + oldStartMin + duration;
+            const newEndHour = Math.floor(newEndMinutes / 60);
+            const newEndMin = newEndMinutes % 60;
+            const newEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMin).padStart(2, '0')}`;
+            
+            // 새 일정 생성
+            const newEvent = {
+                ...originalEvent,
+                startTime: newStartTime,
+                endTime: newEndTime
+            };
+            
+            // 원본 삭제
+            appData.schedules[userKey][sourceDay].splice(sourceIdx, 1);
+            
+            // 새 위치에 추가
+            appData.schedules[userKey][targetDay].push(newEvent);
+            appData.schedules[userKey][targetDay].sort((a, b) => a.startTime.localeCompare(b.startTime));
+            
+            saveData();
+            renderCalendar();
+        }
+        
+        // 설정 관련 함수
+        function openSettings() {
+            showAlert('📱 홈화면 추가 방법', 'iPhone (Safari):\n하단 공유 버튼(□↑) → "홈 화면에 추가"\n\nAndroid (Chrome):\n메뉴(⋮) → "홈 화면에 추가"\n\n✅ 추가 후 홈화면에서 앱처럼 사용!');
+        }
+        
+        function toggleChildSelector(event) {
+            if (event) event.stopPropagation();
+            
+            const selector = document.getElementById('childSelector');
+            const isShowing = selector.classList.contains('show');
+            
+            if (!isShowing) {
+                selector.classList.add('show');
+                renderChildSelector();
+            } else {
+                selector.classList.remove('show');
+            }
+        }
+        
+        function renderChildSelector() {
+            const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
+            const selector = document.getElementById('childSelector');
+            
+            if (!userInfo.children) {
+                userInfo.children = [];
+            }
+            
+            let html = '';
+            
+            userInfo.children.forEach(child => {
+                const isActive = child.id === currentChildId ? 'active' : '';
+                html += `
+                    <div class="child-option ${isActive}" onclick="selectChild(event, '${child.id}')">
+                        ${child.name} (${child.grade}학년)
+                    </div>
+                `;
+            });
+            
+            html += `
+                <div class="child-option add-child-option" onclick="showAddChild(event)">
+                    + 다른 시간표 추가하기
+                </div>
+            `;
+            
+            selector.innerHTML = html;
+        }
+        
+        function selectChild(event, childId) {
+            if (event) event.stopPropagation();
+            
+            currentChildId = childId;
+            document.getElementById('childSelector').classList.remove('show');
+            updateHeaderTitle();
+            renderCalendar();
+        }
+        
+        function updateHeaderTitle() {
+            const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
+            
+            if (!userInfo.children || userInfo.children.length === 0) {
+                document.getElementById('headerTitle').innerHTML = '시간표';
+                return;
+            }
+            
+            const currentChild = userInfo.children.find(c => c.id === currentChildId);
+            if (!currentChild) {
+                currentChildId = userInfo.children[0].id;
+                const child = userInfo.children[0];
+                document.getElementById('headerTitle').innerHTML = `
+                    ${child.name}의 시간표 ▼
+                    <div class="child-selector" id="childSelector"></div>
+                `;
+            } else {
+                document.getElementById('headerTitle').innerHTML = `
+                    ${currentChild.name}의 시간표 ▼
+                    <div class="child-selector" id="childSelector"></div>
+                `;
+            }
+        }
+        
+        function showAddChild(event) {
+            if (event) event.stopPropagation();
+            document.getElementById('childSelector').classList.remove('show');
+            document.getElementById('addChildModal').style.display = 'block';
+        }
+        
+        function closeAddChild() {
+            document.getElementById('addChildModal').style.display = 'none';
+            document.getElementById('newChildName').value = '';
+        }
+        
+        function addChild() {
+            const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
+            const name = document.getElementById('newChildName').value.trim();
+            const grade = document.getElementById('newChildGrade').value;
+            
+            if (!name) {
+                showAlert('⚠️ 입력 오류', '이름을 입력해주세요.');
+                return;
+            }
+            
+            const childId = Date.now().toString();
+            
+            if (!userInfo.children) {
+                userInfo.children = [];
+            }
+            
+            userInfo.children.push({
+                id: childId,
+                name: name,
+                grade: grade
+            });
+            
+            // 새 자녀의 스케줄 초기화
+            appData.schedules[childId] = {
+                월: [], 화: [], 수: [], 목: [], 금: []
+            };
+            appData.subjectColors[childId] = {};
+            
+            saveData();
+            
+            // 새로 추가한 자녀로 전환
+            currentChildId = childId;
+            
+            closeAddChild();
+            updateHeaderTitle();
+            renderCalendar();
+            
+            showAlert('✅ 추가 완료', `${name}의 시간표가 추가되었습니다!`);
+        }
+        
+        // 외부 클릭 시 셀렉터 닫기
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.header-title')) {
+                const selectors = document.querySelectorAll('.child-selector');
+                selectors.forEach(s => s.classList.remove('show'));
+            }
+        });
+        
+        // 커스텀 알림 함수
+        function showAlert(title, message) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').style.display = 'flex';
+        }
+        
+        function hideAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        init();
+    </script>
+</body>
+</html>
