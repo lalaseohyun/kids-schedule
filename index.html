@@ -2038,9 +2038,23 @@
                 const event = appData.schedules[userKey][editingEvent.day][editingEvent.idx];
                 const isRepeatingEvent = checkIfRepeating(userKey, event, editingEvent.day);
                 
+                // 반복 일정이지만 반복 체크박스를 해제한 경우 → 이 일정만 수정
                 if (isRepeatingEvent && !isRepeat) {
-                    // 반복 일정 수정 옵션 묻기
-                    showRepeatingEditOptions(userKey, name, startTime, endTime, teacher, contact, memo);
+                    // 바로 이 일정만 수정 (선택창 안 띄움)
+                    const eventData = { 
+                        name, 
+                        startTime, 
+                        endTime, 
+                        teacher, 
+                        contact: contact ? `010-${contact}` : '', 
+                        memo, 
+                        color: selectedColor 
+                    };
+                    
+                    appData.schedules[userKey][editingEvent.day][editingEvent.idx] = eventData;
+                    saveData();
+                    closeModal();
+                    renderCalendar();
                     return;
                 }
             }
@@ -2062,12 +2076,51 @@
                         return;
                     }
                     
-                    for (const day of selectedDays) {
-                        const excludeIdx = (day === editingEvent.day) ? editingEvent.idx : -1;
-                        const overlapCheck = checkTimeOverlap(day, startTime, endTime, excludeIdx);
+                    // 요일이 1개만 선택되었고, 그게 현재 요일이면 단일 수정으로 처리
+                    if (selectedDays.length === 1 && selectedDays[0] === editingEvent.day) {
+                        const overlapCheck = checkTimeOverlap(editingEvent.day, startTime, endTime, editingEvent.idx);
                         if (overlapCheck.overlap) {
-                            showAlert('🚫 시간 중복', `${day}요일 ${overlapCheck.conflictTime}에\n"${overlapCheck.conflictName}" 일정과\n시간이 겹칩니다!`);
+                            showAlert('🚫 시간 중복', `${overlapCheck.conflictTime}에\n"${overlapCheck.conflictName}" 일정과\n시간이 겹칩니다!`);
                             return;
+                        }
+                    } else {
+                        // 여러 요일 선택 → 반복 일정 수정
+                        // 원본 일정 정보
+                        const originalEvent = appData.schedules[userKey][editingEvent.day][editingEvent.idx];
+                        
+                        // 이름과 시간이 안 바뀌었으면 단순 정보 추가 → 중복 체크 스킵!
+                        if (name === originalEvent.name && 
+                            startTime === originalEvent.startTime && 
+                            endTime === originalEvent.endTime) {
+                            // 중복 체크 안 함! (선생님, 연락처, 메모만 추가)
+                        } else {
+                            // 이름이나 시간이 바뀌었으면 중복 체크
+                            for (const day of selectedDays) {
+                                const daySchedules = appData.schedules[userKey][day] || [];
+                                
+                                // 같은 반복 일정들은 제외하고 중복 체크
+                                for (let i = 0; i < daySchedules.length; i++) {
+                                    const schedule = daySchedules[i];
+                                    
+                                    // 같은 반복 일정이면 스킵
+                                    if (schedule.name === originalEvent.name && 
+                                        schedule.startTime === originalEvent.startTime && 
+                                        schedule.endTime === originalEvent.endTime) {
+                                        continue;
+                                    }
+                                    
+                                    // 시간 겹침 체크
+                                    const newStart = timeToMinutes(startTime);
+                                    const newEnd = timeToMinutes(endTime);
+                                    const existingStart = timeToMinutes(schedule.startTime);
+                                    const existingEnd = timeToMinutes(schedule.endTime);
+                                    
+                                    if (newStart < existingEnd && newEnd > existingStart) {
+                                        showAlert('🚫 시간 중복', `${day}요일 ${formatTime12Hour(schedule.startTime)}-${formatTime12Hour(schedule.endTime)}에\n"${schedule.name}" 일정과\n시간이 겹칩니다!`);
+                                        return;
+                                    }
+                                }
+                            }
                         }
                     }
                 } else {
@@ -2115,10 +2168,24 @@
             if (editingEvent) {
                 // 수정 모드
                 if (isRepeat) {
-                    // 기존 일정 삭제
-                    appData.schedules[userKey][editingEvent.day].splice(editingEvent.idx, 1);
+                    // 원본 일정 정보
+                    const originalEvent = appData.schedules[userKey][editingEvent.day][editingEvent.idx];
+                    const allDays = ['월', '화', '수', '목', '금', '토'];
                     
-                    // 선택한 요일들에 추가
+                    // 기존 반복 일정들 모두 삭제 (같은 이름, 시간)
+                    allDays.forEach(day => {
+                        const daySchedules = appData.schedules[userKey][day] || [];
+                        for (let i = daySchedules.length - 1; i >= 0; i--) {
+                            const e = daySchedules[i];
+                            if (e.name === originalEvent.name && 
+                                e.startTime === originalEvent.startTime && 
+                                e.endTime === originalEvent.endTime) {
+                                daySchedules.splice(i, 1);
+                            }
+                        }
+                    });
+                    
+                    // 선택한 요일들에 새로 추가
                     const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
                     selectedDays.forEach(day => {
                         appData.schedules[userKey][day].push({...eventData});
