@@ -928,7 +928,12 @@
 
             <div class="input-group">
                 <label>연락처 (선택)</label>
-                <input type="tel" id="eventContact" placeholder="010-1234-5678">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="font-size: 16px; color: #666;">010-</span>
+                    <input type="tel" id="eventContact" placeholder="1234-5678" maxlength="9" 
+                           style="flex: 1;"
+                           oninput="formatPhoneNumber(this)">
+                </div>
             </div>
 
             <div class="input-group">
@@ -1909,7 +1914,9 @@
             document.getElementById('eventStart').value = event.startTime || '';
             document.getElementById('eventEnd').value = event.endTime || '';
             document.getElementById('eventTeacher').value = event.teacher || '';
-            document.getElementById('eventContact').value = event.contact || '';
+            // 연락처에서 010- 제거하고 표시
+            const contactValue = event.contact ? event.contact.replace('010-', '') : '';
+            document.getElementById('eventContact').value = contactValue;
             document.getElementById('eventMemo').value = event.memo || '';
             
             // 반복 일정인지 확인 (같은 이름, 같은 시간이 다른 요일에 있는지)
@@ -2000,6 +2007,8 @@
         }
         
         function saveEventNormal(userKey, name, startTime, endTime, teacher, contact, memo, isRepeat) {
+            // 연락처에 010- 자동 추가
+            const fullContact = contact ? `010-${contact}` : '';
             // 시간 중복 체크 (자기 자신 제외)
             if (editingEvent) {
                 // 수정 모드
@@ -2058,7 +2067,7 @@
             }
             appData.subjectColors[userKey][name] = selectedColor;
 
-            const eventData = { name, startTime, endTime, teacher, contact, memo, color: selectedColor };
+            const eventData = { name, startTime, endTime, teacher, contact: fullContact, memo, color: selectedColor };
 
             if (editingEvent) {
                 // 수정 모드
@@ -2552,6 +2561,17 @@
         
         function hideAlert() {
             document.getElementById('alertModal').style.display = 'none';
+        }
+        
+        // 전화번호 자동 포맷팅 (1234-5678)
+        function formatPhoneNumber(input) {
+            let value = input.value.replace(/[^0-9]/g, ''); // 숫자만
+            
+            if (value.length > 4) {
+                value = value.slice(0, 4) + '-' + value.slice(4, 8);
+            }
+            
+            input.value = value;
         }
 
         init();
