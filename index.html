@@ -2470,6 +2470,28 @@
         }
 
         init();
+        
+        // HTML onclick에서 접근 가능하도록 window 객체에 함수 등록
+        window.handleLogin = handleLogin;
+        window.handleRegister = handleRegister;
+        window.handleLogout = handleLogout;
+        window.showLogin = showLogin;
+        window.showRegister = showRegister;
+        window.openAddModal = openAddModal;
+        window.closeModal = closeModal;
+        window.clickPeriod = clickPeriod;
+        window.clickHour = clickHour;
+        window.editEvent = editEvent;
+        window.filterByDay = filterByDay;
+        window.toggleChildSelector = toggleChildSelector;
+        window.selectChild = selectChild;
+        window.showAddChild = showAddChild;
+        window.closeAddChild = closeAddChild;
+        window.addChild = addChild;
+        window.toggleRepeat = toggleRepeat;
+        window.deleteEvent = deleteEvent;
+        window.editOnlyThis = editOnlyThis;
+        window.editAllRepeating = editAllRepeating;
     </script>
 </body>
 </html>
