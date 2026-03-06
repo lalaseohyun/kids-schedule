@@ -1501,16 +1501,16 @@
                         // 상세 보기
                         if (isLunch && day !== '토') {
                             // 점심시간 - 토요일 제외하고 클릭 불가, 시간만 표시
-                            html += `<div class="time-slot" style="${slotHeight} cursor: default; background: #fafafa; padding: 10px 0; display: flex; align-items: center; justify-content: center;">
+                            html += `<div class="time-slot" style="height: 40px; min-height: 40px; cursor: default; background: #fafafa; padding: 10px 0; display: flex; align-items: center; justify-content: center;">
                                 <div style="font-size: 12px; color: #999; text-align: center;">${period.start}-${period.end}</div>
                             </div>`;
                         } else if (isLunch && day === '토') {
                             // 토요일 점심시간 - 클릭 가능
-                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
                         } else if (period.period) {
-                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
                         } else {
-                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
+                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
                         }
                         
                         if (!(isLunch && day !== '토')) {
@@ -1526,11 +1526,20 @@
                                     const eventIdx = daySchedules.indexOf(event);
                                     const subjectColors = appData.subjectColors[userKey] || {};
                                     const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
+                                    
+                                    // 상세 정보 개수에 따라 높이 계산
+                                    let detailsCount = 0;
+                                    if (event.teacher) detailsCount++;
+                                    if (event.contact) detailsCount++;
+                                    if (event.memo) detailsCount++;
+                                    
+                                    // 기본 60px + 상세정보마다 25px 추가
+                                    const eventHeight = 60 + (detailsCount * 25);
 
                                     html += `
                                         <div class="event" 
                                              draggable="false"
-                                             style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: 60px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: pointer;" 
+                                             style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: ${eventHeight}px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 4px;" 
                                              onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
                                             <div class="event-name" style="font-size: 18px; font-weight: 700; margin-bottom: 6px; text-align: left;">${event.name || ''}</div>
                                             <div class="event-time" style="font-size: 14px; margin-bottom: 6px; text-align: left;">${formatTimeRange(event.startTime, event.endTime)}</div>
@@ -1735,9 +1744,17 @@
             document.getElementById('eventContact').value = event.contact || '';
             document.getElementById('eventMemo').value = event.memo || '';
             
-            // 수정 모드에서도 반복 체크 활성화
-            document.getElementById('repeatCheck').checked = false;
-            document.getElementById('repeatCheck').disabled = false;
+            // 반복 일정인지 확인 (같은 이름, 같은 시간이 다른 요일에 있는지)
+            const isRepeating = checkIfRepeating(userKey, event, day);
+            
+            if (isRepeating) {
+                // 반복 일정이면 체크박스 비활성화하고 안내
+                document.getElementById('repeatCheck').checked = false;
+                document.getElementById('repeatCheck').disabled = true;
+            } else {
+                document.getElementById('repeatCheck').checked = false;
+                document.getElementById('repeatCheck').disabled = false;
+            }
             
             document.getElementById('deleteBtn').style.display = 'block';
             
@@ -1752,6 +1769,24 @@
             
             toggleRepeat();
             document.getElementById('eventModal').style.display = 'block';
+        }
+        
+        // 반복 일정인지 확인
+        function checkIfRepeating(userKey, event, currentDay) {
+            const allDays = ['월', '화', '수', '목', '금', '토'];
+            let repeatCount = 0;
+            
+            allDays.forEach(day => {
+                const daySchedules = appData.schedules[userKey][day] || [];
+                const matches = daySchedules.filter(e => 
+                    e.name === event.name && 
+                    e.startTime === event.startTime && 
+                    e.endTime === event.endTime
+                );
+                repeatCount += matches.length;
+            });
+            
+            return repeatCount > 1; // 2개 이상이면 반복 일정
         }
 
         function toggleRepeat() {
@@ -1780,11 +1815,27 @@
                 return;
             }
 
-            // 시간 중복 체크
+            // 수정 모드이고 반복 일정인 경우
+            if (editingEvent) {
+                const event = appData.schedules[userKey][editingEvent.day][editingEvent.idx];
+                const isRepeatingEvent = checkIfRepeating(userKey, event, editingEvent.day);
+                
+                if (isRepeatingEvent && !isRepeat) {
+                    // 반복 일정 수정 옵션 묻기
+                    showRepeatingEditOptions(userKey, name, startTime, endTime, teacher, contact, memo);
+                    return;
+                }
+            }
+
+            // 일반 저장 로직
+            saveEventNormal(userKey, name, startTime, endTime, teacher, contact, memo, isRepeat);
+        }
+        
+        function saveEventNormal(userKey, name, startTime, endTime, teacher, contact, memo, isRepeat) {
+            // 시간 중복 체크 (자기 자신 제외)
             if (editingEvent) {
                 // 수정 모드
                 if (isRepeat) {
-                    // 반복 일정으로 수정 시 각 요일 체크
                     const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
                     if (selectedDays.length === 0) {
                         showAlert('⚠️ 선택 오류', '반복할 요일을 선택해주세요.');
@@ -1800,7 +1851,7 @@
                         }
                     }
                 } else {
-                    // 단일 요일 수정
+                    // 단일 요일 수정 - 자기 자신 제외
                     const overlapCheck = checkTimeOverlap(editingEvent.day, startTime, endTime, editingEvent.idx);
                     if (overlapCheck.overlap) {
                         showAlert('🚫 시간 중복', `${overlapCheck.conflictTime}에\n"${overlapCheck.conflictName}" 일정과\n시간이 겹칩니다!`);
@@ -1849,10 +1900,6 @@
                     
                     // 선택한 요일들에 추가
                     const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
-                    if (selectedDays.length === 0) {
-                        alert('반복할 요일을 선택해주세요.');
-                        return;
-                    }
                     selectedDays.forEach(day => {
                         appData.schedules[userKey][day].push({...eventData});
                         appData.schedules[userKey][day].sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -1865,10 +1912,6 @@
                 // 추가 모드
                 if (isRepeat) {
                     const selectedDays = Array.from(document.querySelectorAll('.repeat-day:checked')).map(cb => cb.value);
-                    if (selectedDays.length === 0) {
-                        alert('반복할 요일을 선택해주세요.');
-                        return;
-                    }
                     selectedDays.forEach(day => {
                         appData.schedules[userKey][day].push({...eventData});
                         appData.schedules[userKey][day].sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -1880,6 +1923,81 @@
                 }
             }
 
+            saveData();
+            closeModal();
+            renderCalendar();
+        }
+        
+        // 반복 일정 수정 옵션 표시
+        function showRepeatingEditOptions(userKey, name, startTime, endTime, teacher, contact, memo) {
+            const confirmHtml = `
+                <div style="text-align: center;">
+                    <p style="margin-bottom: 20px; font-size: 16px;">이 일정은 반복 일정입니다.</p>
+                    <button onclick="editOnlyThis('${userKey}', '${name}', '${startTime}', '${endTime}', '${teacher}', '${contact}', '${memo}')" 
+                            style="width: 100%; padding: 12px; margin-bottom: 10px; background: #000; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        이 일정만 수정
+                    </button>
+                    <button onclick="editAllRepeating('${userKey}', '${name}', '${startTime}', '${endTime}', '${teacher}', '${contact}', '${memo}')" 
+                            style="width: 100%; padding: 12px; background: #fff; color: #000; border: 1px solid #000; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        모든 반복 일정 수정
+                    </button>
+                </div>
+            `;
+            
+            showAlert('🔁 반복 일정 수정', confirmHtml);
+        }
+        
+        // 이 일정만 수정
+        function editOnlyThis(userKey, name, startTime, endTime, teacher, contact, memo) {
+            hideAlert();
+            
+            const eventData = { 
+                name, 
+                startTime, 
+                endTime, 
+                teacher, 
+                contact, 
+                memo, 
+                color: selectedColor 
+            };
+            
+            // 현재 일정만 수정
+            appData.schedules[userKey][editingEvent.day][editingEvent.idx] = eventData;
+            
+            saveData();
+            closeModal();
+            renderCalendar();
+        }
+        
+        // 모든 반복 일정 수정
+        function editAllRepeating(userKey, name, startTime, endTime, teacher, contact, memo) {
+            hideAlert();
+            
+            const originalEvent = appData.schedules[userKey][editingEvent.day][editingEvent.idx];
+            const allDays = ['월', '화', '수', '목', '금', '토'];
+            
+            const eventData = { 
+                name, 
+                startTime, 
+                endTime, 
+                teacher, 
+                contact, 
+                memo, 
+                color: selectedColor 
+            };
+            
+            // 모든 요일에서 같은 일정 찾아서 수정
+            allDays.forEach(day => {
+                const daySchedules = appData.schedules[userKey][day] || [];
+                daySchedules.forEach((e, idx) => {
+                    if (e.name === originalEvent.name && 
+                        e.startTime === originalEvent.startTime && 
+                        e.endTime === originalEvent.endTime) {
+                        appData.schedules[userKey][day][idx] = {...eventData};
+                    }
+                });
+            });
+            
             saveData();
             closeModal();
             renderCalendar();
