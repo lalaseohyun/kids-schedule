@@ -1476,8 +1476,9 @@
                     html += `<div class="day-header" onclick="filterByDay('${day}')">${day}</div>`;
                 });
             } else {
-                // 상세 보기 - 뒤로가기 + 선택된 요일
-                html += `<div class="day-header active" onclick="filterByDay('all')">← 전체</div>`;
+                // 상세 보기 - 뒤로가기 + 선택된 요일 (높이 동일하게)
+                const firstPeriodHeight = periodHeights[0] || 40;
+                html += `<div class="day-header active" onclick="filterByDay('all')" style="height: ${firstPeriodHeight}px; display: flex; align-items: center; justify-content: center;">← 전체</div>`;
             }
 
             allPeriods.forEach((period, idx) => {
