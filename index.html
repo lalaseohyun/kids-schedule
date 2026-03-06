@@ -7,6 +7,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="시간표">
+    
+    <!-- 아이콘 -->
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="apple-touch-icon" href="icon.svg">
+    
     <title>시간표</title>
     
     <!-- Firebase SDK (compat 방식) -->
@@ -2170,8 +2175,6 @@
             console.log('=== DELETE EVENT START ===');
             console.log('deleteEvent called');
             console.log('editingEvent:', editingEvent);
-            console.log('editingEvent.day:', editingEvent?.day);
-            console.log('editingEvent.idx:', editingEvent?.idx);
             
             if (!editingEvent || !editingEvent.day || editingEvent.idx === undefined) {
                 console.error('Invalid editingEvent');
@@ -2179,8 +2182,79 @@
                 return;
             }
             
-            // 커스텀 확인 모달 표시
-            showConfirmModal();
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            const event = appData.schedules[userKey][editingEvent.day][editingEvent.idx];
+            
+            // 반복 일정인지 확인
+            const isRepeatingEvent = checkIfRepeating(userKey, event, editingEvent.day);
+            
+            if (isRepeatingEvent) {
+                // 반복 일정 삭제 옵션 표시
+                showRepeatingDeleteOptions();
+            } else {
+                // 일반 일정은 기존 확인 모달
+                showConfirmModal();
+            }
+        }
+        
+        function showRepeatingDeleteOptions() {
+            const confirmHtml = `
+                <div style="text-align: center;">
+                    <p style="margin-bottom: 20px; font-size: 16px;">이 일정은 반복 일정입니다.</p>
+                    <button onclick="deleteOnlyThis()" 
+                            style="width: 100%; padding: 12px; margin-bottom: 10px; background: #000; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        이 일정만 삭제
+                    </button>
+                    <button onclick="deleteAllRepeating()" 
+                            style="width: 100%; padding: 12px; margin-bottom: 10px; background: #d32f2f; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        모든 반복 일정 삭제
+                    </button>
+                    <button onclick="hideAlert()" 
+                            style="width: 100%; padding: 12px; background: #999; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        취소
+                    </button>
+                </div>
+            `;
+            
+            showAlert('🗑️ 반복 일정 삭제', confirmHtml);
+        }
+        
+        // 이 일정만 삭제
+        function deleteOnlyThis() {
+            hideAlert();
+            
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            appData.schedules[userKey][editingEvent.day].splice(editingEvent.idx, 1);
+            
+            saveData();
+            closeModal();
+            renderCalendar();
+        }
+        
+        // 모든 반복 일정 삭제
+        function deleteAllRepeating() {
+            hideAlert();
+            
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            const originalEvent = appData.schedules[userKey][editingEvent.day][editingEvent.idx];
+            const allDays = ['월', '화', '수', '목', '금', '토'];
+            
+            // 모든 요일에서 같은 일정 찾아서 삭제 (뒤에서부터)
+            allDays.forEach(day => {
+                const daySchedules = appData.schedules[userKey][day] || [];
+                for (let i = daySchedules.length - 1; i >= 0; i--) {
+                    const e = daySchedules[i];
+                    if (e.name === originalEvent.name && 
+                        e.startTime === originalEvent.startTime && 
+                        e.endTime === originalEvent.endTime) {
+                        daySchedules.splice(i, 1);
+                    }
+                }
+            });
+            
+            saveData();
+            closeModal();
+            renderCalendar();
         }
         
         function showConfirmModal() {
