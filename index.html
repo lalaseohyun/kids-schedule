@@ -1899,6 +1899,9 @@
             document.getElementById('repeatCheck').disabled = false; // 추가 모드에서는 활성화
             document.getElementById('deleteBtn').style.display = 'none';
             
+            // 요일 체크박스 모두 해제
+            document.querySelectorAll('.repeat-day').forEach(cb => cb.checked = false);
+            
             // 첫 번째 색상 선택
             selectedColor = '#F4C6C6';
             document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
@@ -1945,15 +1948,33 @@
             const isRepeating = checkIfRepeating(userKey, event, day);
             
             if (isRepeating) {
-                // 반복 일정이면 체크박스 비활성화하고 안내
-                document.getElementById('repeatCheck').checked = false;
-                document.getElementById('repeatCheck').disabled = true;
+                // 반복 일정이면 체크박스 체크하고 요일도 선택
+                document.getElementById('repeatCheck').checked = true;
+                document.getElementById('repeatCheck').disabled = false; // 수정 가능하게!
+                
+                // 반복되는 요일 찾아서 체크
+                const allDays = ['월', '화', '수', '목', '금', '토'];
+                allDays.forEach(d => {
+                    const daySchedules = appData.schedules[userKey][d] || [];
+                    const hasEvent = daySchedules.some(e => 
+                        e.name === event.name && 
+                        e.startTime === event.startTime && 
+                        e.endTime === event.endTime
+                    );
+                    const checkbox = document.querySelector(`.repeat-day[value="${d}"]`);
+                    if (checkbox) {
+                        checkbox.checked = hasEvent;
+                    }
+                });
             } else {
                 document.getElementById('repeatCheck').checked = false;
                 document.getElementById('repeatCheck').disabled = false;
             }
             
             document.getElementById('deleteBtn').style.display = 'block';
+            
+            // toggleRepeat 호출하여 반복 옵션 보이기/숨기기
+            toggleRepeat();
             
             // 저장된 색상 선택
             selectedColor = event.color || subjectColors[event.name] || '#F4C6C6';
@@ -2140,8 +2161,12 @@
                         이 일정만 수정
                     </button>
                     <button onclick="editAllRepeatingClick()" 
-                            style="width: 100%; padding: 12px; background: #fff; color: #000; border: 1px solid #000; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                            style="width: 100%; padding: 12px; margin-bottom: 10px; background: #fff; color: #000; border: 1px solid #000; border-radius: 8px; font-size: 16px; cursor: pointer;">
                         모든 반복 일정 수정
+                    </button>
+                    <button onclick="hideAlert()" 
+                            style="width: 100%; padding: 12px; background: #999; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        취소
                     </button>
                 </div>
             `;
