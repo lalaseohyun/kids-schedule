@@ -1755,18 +1755,21 @@
             }
 
             // allPeriods 사이 갭(쉬는시간) 포함한 전체 행 목록
-            // spread 충돌 방지: startMin/endMin/isGap만 명시적으로 사용
             const displayRows = [];
             allPeriods.forEach((period, idx) => {
                 if (idx > 0) {
                     const prevEnd  = getPeriodMinutes(allPeriods[idx - 1]).end;
                     const curStart = getPeriodMinutes(period).start;
-                    if (curStart > prevEnd) {
+                    const gapMin   = curStart - prevEnd;
+                    if (gapMin > 0) {
+                        const isShortBreak = gapMin <= 15; // 쉬는시간
                         displayRows.push({
                             isGap: true,
+                            isShortBreak,
                             startMin: prevEnd,
                             endMin: curStart,
-                            labelText: ''
+                            gapMin,
+                            labelText: isShortBreak ? '' : `${Math.floor(prevEnd/60)}:${String(prevEnd%60).padStart(2,'0')}~${Math.floor(curStart/60)}:${String(curStart%60).padStart(2,'0')}`
                         });
                     }
                 }
@@ -1851,12 +1854,28 @@
                 const topPx    = timeToPx(row.startMin);
                 const heightPx = (row.endMin - row.startMin) * PX_PER_MIN;
 
-                // 경계선
+                // 경계선 + 갭 배경
                 const line = document.createElement('div');
-                line.style.cssText = `position:absolute; left:0; right:0; top:${topPx}px; height:${heightPx}px; border-bottom:1px solid #e0e0e0; box-sizing:border-box;`;
+                const gapBg = row.isGap ? (row.isShortBreak ? '#f5f5f5' : '#f0f0f0') : 'transparent';
+                line.style.cssText = `position:absolute; left:0; right:0; top:${topPx}px; height:${heightPx}px; border-bottom:1px solid #e0e0e0; box-sizing:border-box; background:${gapBg};`;
                 labelCol.appendChild(line);
 
-                if (row.isGap) return;
+                if (row.isGap) {
+                    // 긴 갭(16분 이상)이면 시간 범위 표시
+                    if (!row.isShortBreak && row.labelText) {
+                        const gapLbl = document.createElement('div');
+                        gapLbl.style.cssText = `
+                            position:absolute; left:0; right:0;
+                            top:${topPx}px; height:${heightPx}px;
+                            display:flex; align-items:center; justify-content:center;
+                            font-size:7px; color:#aaa; pointer-events:none;
+                            writing-mode: horizontal-tb;
+                        `;
+                        gapLbl.textContent = row.labelText;
+                        labelCol.appendChild(gapLbl);
+                    }
+                    return;
+                }
 
                 const lbl = document.createElement('div');
                 lbl.style.cssText = `
@@ -1902,7 +1921,8 @@
                     const bg = document.createElement('div');
                     let bgColor = 'transparent';
                     if (row.isLunch && day !== '토') bgColor = '#fafafa';
-                    else if (row.isGap) bgColor = '#f9f9f9';
+                    else if (row.isGap && row.isShortBreak) bgColor = '#f5f5f5';
+                    else if (row.isGap) bgColor = '#f0f0f0';
 
                     bg.style.cssText = `
                         position: absolute; left:0; right:0;
