@@ -1067,18 +1067,6 @@
                 
                 <div id="scheduleTimeSettings"></div>
                 
-                <div style="margin-top: 20px;">
-                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">오후 시간대 표시 방식:</label>
-                    <label style="display: block; margin-bottom: 8px; cursor: pointer;">
-                        <input type="radio" name="afternoonDisplay" value="time" checked onchange="updateAfternoonDisplay()"> 
-                        시간 (2:00, 3:00, 4:00...)
-                    </label>
-                    <label style="display: block; cursor: pointer;">
-                        <input type="radio" name="afternoonDisplay" value="period" onchange="updateAfternoonDisplay()"> 
-                        교시 (6교시, 7교시, 8교시...)
-                    </label>
-                </div>
-                
                 <button class="btn" style="margin-top: 15px;" onclick="saveScheduleSettings()">시간표 설정 저장</button>
                 <button class="btn" style="margin-top: 10px; background: #e57373; color: white;" onclick="resetScheduleSettings()">기본 시간표로 초기화</button>
             </div>
@@ -1220,16 +1208,7 @@
         };
         
         // 방과후 시간대 (모든 학년 공통)
-        const afterSchoolHours = [
-            { hour: 14 },
-            { hour: 15 },
-            { hour: 16 },
-            { hour: 17 },
-            { hour: 18 },
-            { hour: 19 },
-            { hour: 20 },
-            { hour: 21 }
-        ];
+        // afterSchoolHours는 renderCalendar에서 동적으로 생성됨 (오후 표시방식 설정 반영)
         
         // 드래그 앤 드롭 관련 변수
         let draggedEvent = null;
@@ -1238,14 +1217,12 @@
         // 24시간 형식을 12시간 형식으로 변환
         function formatTime12Hour(time24) {
             if (!time24) return '';
+            // 24시간제 그대로 표시 (앞 0 제거: 09:00 → 9:00)
             const [hour, minute] = time24.split(':');
-            const h = parseInt(hour);
-            if (h === 0) return `12:${minute}`;
-            if (h <= 12) return `${h}:${minute}`;
-            return `${h - 12}:${minute}`;
+            return `${parseInt(hour)}:${minute}`;
         }
         
-        // 시간 범위를 12시간 형식으로 변환
+        // 시간 범위 표시
         function formatTimeRange(startTime, endTime) {
             return `${formatTime12Hour(startTime)}-${formatTime12Hour(endTime)}`;
         }
@@ -1348,15 +1325,18 @@
                     appData.customSchedule = {};
                 }
                 
-                // customSchedule 데이터 정합성 수정:
-                // { hour: N } 형식이나 start/end가 없는 항목 제거
+                // customSchedule 데이터 정합성 수정
                 Object.keys(appData.customSchedule).forEach(key => {
                     const sched = appData.customSchedule[key];
                     if (Array.isArray(sched)) {
-                        appData.customSchedule[key] = sched.filter(p =>
-                            p.period && typeof p.start === 'string' && typeof p.end === 'string'
-                            && p.start.includes(':') && p.end.includes(':')
-                        );
+                        appData.customSchedule[key] = sched.filter(p => {
+                            if (!p.period || typeof p.start !== 'string' || typeof p.end !== 'string') return false;
+                            if (!p.start.includes(':') || !p.end.includes(':')) return false;
+                            // 학교 시간 범위 검증: 6시~22시 사이
+                            const [sh] = p.start.split(':').map(Number);
+                            const [eh] = p.end.split(':').map(Number);
+                            return sh >= 6 && sh <= 22 && eh >= 6 && eh <= 22;
+                        });
                         if (appData.customSchedule[key].length === 0) {
                             delete appData.customSchedule[key];
                         }
@@ -1614,32 +1594,75 @@
             const grade = currentChild?.grade || '1';
             
             let periods;
+            const basePeriods = gradeSchedules[grade] || gradeSchedules['1'];
+
             if (appData.customSchedule && appData.customSchedule[userKey]) {
-                periods = appData.customSchedule[userKey];
+                let custom = appData.customSchedule[userKey];
+                // 정합성 검사: 유효한 시간 형식 + 6~22시 범위
+                custom = custom.filter(p => {
+                    if (!p.period || typeof p.start !== 'string' || typeof p.end !== 'string') return false;
+                    if (!p.start.includes(':') || !p.end.includes(':')) return false;
+                    const [sh] = p.start.split(':').map(Number);
+                    const [eh] = p.end.split(':').map(Number);
+                    return sh >= 6 && sh <= 22 && eh >= 6 && eh <= 22;
+                });
+                // 교시 수(점심 제외)가 basePeriods와 같아야 유효
+                const customClassCount = custom.filter(p => p.period !== '점심').length;
+                const baseClassCount   = basePeriods.filter(p => p.period !== '점심').length;
+                const hasLunch = custom.some(p => p.period === '점심');
+                if (customClassCount === baseClassCount && hasLunch) {
+                    periods = custom;
+                } else {
+                    delete appData.customSchedule[userKey];
+                    saveData();
+                    periods = basePeriods;
+                }
             } else {
-                periods = gradeSchedules[grade] || gradeSchedules['1'];
+                periods = basePeriods;
             }
 
-            // 항상 정합성 검사: start/end 문자열이 없는 항목 제거
-            periods = periods.filter(p =>
-                p.period &&
-                typeof p.start === 'string' && p.start.includes(':') &&
-                typeof p.end === 'string' && p.end.includes(':')
-            );
-            if (periods.length === 0) {
-                periods = gradeSchedules[grade] || gradeSchedules['1'];
-                if (appData.customSchedule) delete appData.customSchedule[userKey];
-                saveData();
-            }
+            // 오후 표시방식에 따라 afterSchoolHours 동적 생성
+            const afternoonMode = appData.afternoonMode?.[userKey] || 'time';
 
-            // afterSchoolHours에서 교시 시간과 겹치는 항목 제거
+            // 마지막 교시 끝 시간 기준으로 오후 시작 시간 결정
             const periodEndMin = periods.length > 0
                 ? Math.max(...periods.map(p => p.period ? timeToMinutes(p.end) : (p.hour + 1) * 60))
-                : 0;
+                : 840; // 기본 14:00
+
+            // 오후 시작 시간 (정시 기준, 교시 끝 시간 이후 첫 정시)
+            const afterSchoolStartHour = Math.ceil(periodEndMin / 60);
+
+            let afterSchoolHours = [];
+            if (afternoonMode === 'period') {
+                // 교시 방식: 40분 간격, 최대 8교시까지만
+                const lastPeriodNum = periods.filter(p => p.period && p.period !== '점심').length;
+                let periodNum = lastPeriodNum + 1;
+                let curMin = periodEndMin;
+                const MAX_PERIOD = 8;
+                while (curMin < 22 * 60 && periodNum <= MAX_PERIOD) {
+                    const endMin = curMin + 40;
+                    afterSchoolHours.push({
+                        hour: null,
+                        period: `${periodNum}교시`,
+                        start: `${String(Math.floor(curMin/60)).padStart(2,'0')}:${String(curMin%60).padStart(2,'0')}`,
+                        end:   `${String(Math.floor(endMin/60)).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`
+                    });
+                    curMin = endMin + 10;
+                    periodNum++;
+                }
+                // 8교시 이후는 16:00부터 1시간 간격으로
+                for (let h = 16; h <= 21; h++) {
+                    afterSchoolHours.push({ hour: h });
+                }
+            } else {
+                // 시간 방식: 1시간 간격
+                for (let h = afterSchoolStartHour; h <= 21; h++) {
+                    afterSchoolHours.push({ hour: h });
+                }
+            }
+
             const filteredAfterSchool = afterSchoolHours.filter(h => {
-                const hStart = h.hour * 60;
-                const hEnd = (h.hour + 1) * 60;
-                // 교시 시간대와 전혀 겹치지 않는 것만 포함
+                const hStart = h.hour != null ? h.hour * 60 : timeToMinutes(h.start);
                 return hStart >= periodEndMin;
             });
 
@@ -1664,7 +1687,7 @@
                     if (event.memo) detailsCount++;
                     const eventHeight = 60 + (detailsCount * 25) + 10;
                     allPeriods.forEach((period, idx) => {
-                        const isIn = period.period ? isEventInPeriod(event, period) : isEventInHour(event, period.hour);
+                        const isIn = period.start ? isEventInPeriod(event, period) : isEventInHour(event, period.hour);
                         if (isIn) periodHeights[idx] = Math.max(periodHeights[idx], eventHeight + 20);
                     });
                 });
@@ -1675,7 +1698,9 @@
                 html += `<div class="day-header active" onclick="filterByDay('all')" style="height: ${firstPeriodHeight}px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;">← 전체</div>`;
 
                 allPeriods.forEach((period, idx) => {
-                    const displayLabel = period.hour ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`) : period.period;
+                    const displayLabel = period.hour != null
+                        ? `${period.hour}:00`
+                        : period.period;
                     const isLunch = period.period === '점심';
                     const detailViewHeight = periodHeights[idx] || 40;
                     const slotStyle = `height: ${detailViewHeight}px; min-height: ${detailViewHeight}px;`;
@@ -1693,7 +1718,7 @@
                         else html += `<div class="time-slot no-border" style="${slotStyle} padding: 10px 0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
 
                         const periodSchedules = daySchedules.filter(event =>
-                            period.period ? isEventInPeriod(event, period) : isEventInHour(event, period.hour)
+                            period.start ? isEventInPeriod(event, period) : isEventInHour(event, period.hour)
                         );
                         periodSchedules.forEach((event) => {
                             const eventIdx = daySchedules.indexOf(event);
@@ -1725,68 +1750,84 @@
             }
 
             // ─── 전체보기: flexbox + 절대픽셀 방식 ───────────────────────
-            // grid-row span 방식 완전 포기 → 라벨/컬럼 모두 같은 컨테이너 안에서 px로 정렬
 
             const isMobile = window.innerWidth <= 768;
             const isTablet = window.innerWidth >= 769 && window.innerWidth <= 1024;
-            const BASE_SLOT_HEIGHT = isMobile ? 55 : isTablet ? 100 : 140; // 60분 기준 높이
-            const PX_PER_MIN = BASE_SLOT_HEIGHT / 60;
+            const PERIOD_HEIGHT = isMobile ? 55 : isTablet ? 80 : 110; // 교시 1칸(40분) 높이
+            const HOUR_HEIGHT   = isMobile ? 55 : isTablet ? 80 : 110; // 오후 1시간 높이
 
             function getPeriodMinutes(period) {
-                if (period.period) {
+                if (period.start && period.end) {
                     const s = timeToMinutes(period.start);
                     const e = timeToMinutes(period.end);
-                    // 유효하지 않은 시간이면 hour 방식으로 fallback
-                    if (isNaN(s) || isNaN(e)) {
-                        return { start: 0, end: 0 };
-                    }
-                    return { start: s, end: e };
-                } else {
-                    return { start: (period.hour || 0) * 60, end: ((period.hour || 0) + 1) * 60 };
+                    if (!isNaN(s) && !isNaN(e)) return { start: s, end: e };
                 }
+                if (period.hour != null) {
+                    return { start: period.hour * 60, end: (period.hour + 1) * 60 };
+                }
+                return { start: 0, end: 0 };
             }
 
-            const firstPeriodMin = getPeriodMinutes(allPeriods[0]).start;
-            const lastPeriodEnd  = getPeriodMinutes(allPeriods[allPeriods.length - 1]).end;
-            const totalColHeight = (lastPeriodEnd - firstPeriodMin) * PX_PER_MIN;
-
-            function timeToPx(minutes) {
-                return (minutes - firstPeriodMin) * PX_PER_MIN;
-            }
-
-            // allPeriods 사이 갭(쉬는시간) 포함한 전체 행 목록
+            // ── displayRows: 쉬는시간(≤25분) 완전 무시, period만 행으로 ──
+            // 각 행에 topPx/heightPx를 직접 누적 계산
             const displayRows = [];
-            allPeriods.forEach((period, idx) => {
-                if (idx > 0) {
-                    const prevEnd  = getPeriodMinutes(allPeriods[idx - 1]).end;
-                    const curStart = getPeriodMinutes(period).start;
-                    const gapMin   = curStart - prevEnd;
-                    if (gapMin > 0) {
-                        const isShortBreak = gapMin <= 15; // 쉬는시간
-                        displayRows.push({
-                            isGap: true,
-                            isShortBreak,
-                            startMin: prevEnd,
-                            endMin: curStart,
-                            gapMin,
-                            labelText: isShortBreak ? '' : `${Math.floor(prevEnd/60)}:${String(prevEnd%60).padStart(2,'0')}~${Math.floor(curStart/60)}:${String(curStart%60).padStart(2,'0')}`
-                        });
-                    }
-                }
+            let accPx = 0; // 누적 픽셀 (쉬는시간 갭 제외)
+
+            allPeriods.forEach((period) => {
                 const { start, end } = getPeriodMinutes(period);
-                const labelText = period.hour
-                    ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`)
-                    : (period.period || '');
+                const durationMin = end - start;
                 const isLunch = period.period === '점심';
+                // 오후 시간(hour) 방식이거나, 교시 방식 오후(start가 periodEndMin 이후)
+                const isAfterSchool = period.hour != null || start >= periodEndMin && period.period && !['1교시','2교시','3교시','4교시','5교시','점심'].includes(period.period);
+                const isPeriodMode  = period.hour == null && period.start && period.end;
+
+                const rowHeight = isAfterSchool && period.hour != null
+                    ? (durationMin / 60) * HOUR_HEIGHT
+                    : isLunch
+                        ? (durationMin / 40) * PERIOD_HEIGHT * 0.5
+                        : (durationMin / 40) * PERIOD_HEIGHT;
+
+                const labelText = period.hour != null
+                    ? `${period.hour}:00`
+                    : (period.period || '');
+
                 displayRows.push({
                     isGap: false,
-                    isLunch: isLunch,
+                    isLunch,
+                    isAfterSchool,
                     startMin: start,
                     endMin: end,
-                    labelText: labelText,
+                    topPx: accPx,
+                    heightPx: rowHeight,
+                    labelText,
                     lunchLabel: isLunch ? `${period.start}-${period.end}` : ''
                 });
+
+                accPx += rowHeight;
             });
+
+            const totalColHeight = accPx;
+
+            // 실제 시간(분) → 픽셀 변환 (이벤트 위치용)
+            // 각 period의 topPx + (분 오프셋 × px/분)
+            function timeToPx(minutes) {
+                // 해당 minutes가 속한 row 찾기
+                for (let i = 0; i < displayRows.length; i++) {
+                    const row = displayRows[i];
+                    if (minutes >= row.startMin && minutes <= row.endMin) {
+                        const offsetMin = minutes - row.startMin;
+                        const pxPerMin = row.heightPx / (row.endMin - row.startMin);
+                        return row.topPx + offsetMin * pxPerMin;
+                    }
+                }
+                // 마지막 row 이후
+                const last = displayRows[displayRows.length - 1];
+                if (last) {
+                    const pxPerMin = last.heightPx / (last.endMin - last.startMin);
+                    return last.topPx + (minutes - last.startMin) * pxPerMin;
+                }
+                return 0;
+            }
 
             // calendarGrid를 grid 대신 flex 컨테이너로 쓸 것이므로
             // 여기서는 innerHTML을 직접 단일 div로 교체
@@ -1851,31 +1892,16 @@
             `;
 
             displayRows.forEach(row => {
-                const topPx    = timeToPx(row.startMin);
-                const heightPx = (row.endMin - row.startMin) * PX_PER_MIN;
+                const topPx    = row.topPx;
+                const heightPx = row.heightPx;
 
                 // 경계선 + 갭 배경
                 const line = document.createElement('div');
-                const gapBg = row.isGap ? (row.isShortBreak ? '#f5f5f5' : '#f0f0f0') : 'transparent';
+                const gapBg = row.isGap ? (row.isShortBreak ? '#f5f5f5' : '#efefef') : 'transparent';
                 line.style.cssText = `position:absolute; left:0; right:0; top:${topPx}px; height:${heightPx}px; border-bottom:1px solid #e0e0e0; box-sizing:border-box; background:${gapBg};`;
                 labelCol.appendChild(line);
 
-                if (row.isGap) {
-                    // 긴 갭(16분 이상)이면 시간 범위 표시
-                    if (!row.isShortBreak && row.labelText) {
-                        const gapLbl = document.createElement('div');
-                        gapLbl.style.cssText = `
-                            position:absolute; left:0; right:0;
-                            top:${topPx}px; height:${heightPx}px;
-                            display:flex; align-items:center; justify-content:center;
-                            font-size:7px; color:#aaa; pointer-events:none;
-                            writing-mode: horizontal-tb;
-                        `;
-                        gapLbl.textContent = row.labelText;
-                        labelCol.appendChild(gapLbl);
-                    }
-                    return;
-                }
+                if (row.isGap) return;
 
                 const lbl = document.createElement('div');
                 lbl.style.cssText = `
@@ -1915,8 +1941,8 @@
 
                 // 배경 격자선
                 displayRows.forEach(row => {
-                    const topPx    = timeToPx(row.startMin);
-                    const heightPx = (row.endMin - row.startMin) * PX_PER_MIN;
+                    const topPx    = row.topPx;
+                    const heightPx = row.heightPx;
 
                     const bg = document.createElement('div');
                     let bgColor = 'transparent';
@@ -1950,15 +1976,16 @@
                     const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
                     const eventStartMin = timeToMinutes(event.startTime);
                     const eventEndMin   = timeToMinutes(event.endTime);
-                    const topPx    = timeToPx(eventStartMin);
-                    const heightPx = (eventEndMin - eventStartMin) * PX_PER_MIN;
+                    const margin = 2; // 위아래 여백(px)
+                    const topPx    = timeToPx(eventStartMin) + margin;
+                    const heightPx = timeToPx(eventEndMin) - timeToPx(eventStartMin) - margin * 2;
                     if (heightPx <= 0) return;
 
                     const ev = document.createElement('div');
                     ev.style.cssText = `
                         position: absolute;
                         top: ${topPx}px;
-                        left: 2px; right: 2px;
+                        left: 3px; right: 3px;
                         height: ${heightPx}px;
                         background: ${bgColor};
                         border-radius: 4px;
@@ -2018,29 +2045,62 @@
                 periods = gradeSchedules[grade] || gradeSchedules['1'];
             }
             const allPeriods = (() => {
-                const periodEndMin = periods.length > 0
-                    ? Math.max(...periods.map(p => p.period ? timeToMinutes(p.end) : (p.hour + 1) * 60))
+                const pEndMin = periods.length > 0
+                    ? Math.max(...periods.map(p => p.start ? timeToMinutes(p.end) : (p.hour + 1) * 60))
                     : 0;
-                return [...periods, ...afterSchoolHours.filter(h => h.hour * 60 >= periodEndMin)]
+                const afternoonModeC = appData.afternoonMode?.[userKey] || 'time';
+                const afterSchoolStartHourC = Math.ceil(pEndMin / 60);
+                let afterSchoolC = [];
+                if (afternoonModeC === 'period') {
+                    const lastNum = periods.filter(p => p.period && p.period !== '점심').length;
+                    let pNum = lastNum + 1, cur = pEndMin;
+                    while (cur < 22 * 60 && pNum <= 8) {
+                        const eMin = cur + 40;
+                        afterSchoolC.push({ period: `${pNum}교시`, start: `${String(Math.floor(cur/60)).padStart(2,'0')}:${String(cur%60).padStart(2,'0')}`, end: `${String(Math.floor(eMin/60)).padStart(2,'0')}:${String(eMin%60).padStart(2,'0')}` });
+                        cur = eMin + 10; pNum++;
+                    }
+                    for (let h = 16; h <= 21; h++) afterSchoolC.push({ hour: h });
+                } else {
+                    for (let h = afterSchoolStartHourC; h <= 21; h++) afterSchoolC.push({ hour: h });
+                }
+                return [...periods, ...afterSchoolC.filter(h => (h.hour != null ? h.hour * 60 : timeToMinutes(h.start)) >= pEndMin)]
                     .sort((a, b) => {
-                        const aS = a.period ? timeToMinutes(a.start) : a.hour * 60;
-                        const bS = b.period ? timeToMinutes(b.start) : b.hour * 60;
+                        const aS = a.start ? timeToMinutes(a.start) : a.hour * 60;
+                        const bS = b.start ? timeToMinutes(b.start) : b.hour * 60;
                         return aS - bS;
                     });
             })();
 
             const isMobile = window.innerWidth <= 768;
             const isTablet = window.innerWidth >= 769 && window.innerWidth <= 1024;
-            const BASE_SLOT_HEIGHT = isMobile ? 55 : isTablet ? 100 : 140;
-            const PX_PER_MIN = BASE_SLOT_HEIGHT / 60;
+            const PERIOD_HEIGHT_C = isMobile ? 55 : isTablet ? 80 : 110;
+            const HOUR_HEIGHT_C   = isMobile ? 55 : isTablet ? 80 : 110;
 
             function getMinutes(p) {
-                return p.period
-                    ? { start: timeToMinutes(p.start), end: timeToMinutes(p.end) }
-                    : { start: p.hour * 60, end: (p.hour + 1) * 60 };
+                if (p.start && p.end) {
+                    const s = timeToMinutes(p.start), e = timeToMinutes(p.end);
+                    if (!isNaN(s) && !isNaN(e)) return { start: s, end: e };
+                }
+                return { start: p.hour * 60, end: (p.hour + 1) * 60 };
             }
-            const firstMin = getMinutes(allPeriods[0]).start;
-            const clickedMin = firstMin + y / PX_PER_MIN;
+
+            // 클릭된 y픽셀 → 분 변환: allPeriods 순서대로 누적 픽셀
+            let accPxC = 0;
+            let clickedMin = null;
+            for (const p of allPeriods) {
+                const { start, end } = getMinutes(p);
+                const dur = end - start;
+                const h = p.hour != null
+                    ? (dur / 60) * HOUR_HEIGHT_C
+                    : (dur / 40) * PERIOD_HEIGHT_C;
+                if (y >= accPxC && y < accPxC + h) {
+                    const offsetMin = ((y - accPxC) / h) * dur;
+                    clickedMin = start + offsetMin;
+                    break;
+                }
+                accPxC += h;
+            }
+            if (clickedMin === null) return;
 
             // 클릭 위치에 해당하는 period 찾기
             let period = null;
@@ -2838,39 +2898,118 @@
         
         function renderScheduleTimeSettings() {
             const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
-            const customSchedule = appData.customSchedule[userKey] || null;
-            
-            // 현재 자녀 정보 가져오기
             const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
-            let currentChild = null;
-            if (currentChildId) {
-                currentChild = userInfo.children.find(c => c.id === currentChildId);
-            } else {
-                currentChild = userInfo;
-            }
-            
+            let currentChild = currentChildId
+                ? userInfo.children?.find(c => c.id === currentChildId)
+                : userInfo;
             const grade = currentChild ? parseInt(currentChild.grade) : 1;
             const basePeriods = gradeSchedules[grade] || gradeSchedules['1'];
-            
-            // 커스텀 설정이 있으면 사용, 없으면 기본값
-            const periods = customSchedule || basePeriods;
-            
-            let html = '<div style="max-height: 300px; overflow-y: auto;">';
-            
-            periods.forEach((period, idx) => {
-                const label = period.period || `${period.hour}:00`;
+
+            // 현재 설정 (커스텀 or 기본값)
+            const customSchedule = appData.customSchedule?.[userKey];
+            const customClassCount = customSchedule?.filter(p => p.period !== '점심').length;
+            const baseClassCount   = basePeriods.filter(p => p.period !== '점심').length;
+            const hasLunch = customSchedule?.some(p => p.period === '점심');
+            const periods = (customSchedule && customClassCount === baseClassCount && hasLunch)
+                ? customSchedule : basePeriods;
+
+            // 점심이 몇 번째 교시 다음에 오는지 계산
+            const lunchIdx = periods.findIndex(p => p.period === '점심');
+            const periodsBeforeLunch = periods.slice(0, lunchIdx).filter(p => p.period !== '점심').length;
+            const totalPeriods = periods.filter(p => p.period !== '점심').length;
+
+            // 오후 표시방식 현재 설정
+            const afternoonMode = appData.afternoonMode?.[userKey] || 'time';
+
+            let html = `<div style="max-height:460px; overflow-y:auto;">`;
+            html += `<p style="font-size:12px; color:#888; margin-bottom:12px;">24시간제 입력 (오후 1시 → 13:00)</p>`;
+
+            // 점심 위치 선택 (변경 시 점심 시간 자동 업데이트)
+            html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding:10px; background:#f5f5f5; border-radius:8px;">
+                <label style="font-weight:600; font-size:13px; white-space:nowrap;">🍱 점심 위치:</label>
+                <select id="lunchPosition" onchange="onLunchPositionChange()" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:13px;">`;
+            for (let i = 1; i <= totalPeriods; i++) {
+                const selected = periodsBeforeLunch === i ? 'selected' : '';
+                html += `<option value="${i}" ${selected}>${i}교시 후</option>`;
+            }
+            html += `</select></div>`;
+
+            // 교시 시간 입력 (점심 제외)
+            const classPeriods = periods.filter(p => p.period !== '점심');
+            classPeriods.forEach((period, idx) => {
                 html += `
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <label style="min-width: 80px; font-weight: 600;">${label}:</label>
-                        <input type="time" value="${period.start}" id="period-${idx}-start" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <span style="padding: 0 5px;">~</span>
-                        <input type="time" value="${period.end}" id="period-${idx}-end" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    </div>
-                `;
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                        <label style="min-width:55px; font-weight:600; font-size:13px;">${period.period}:</label>
+                        <input type="text" value="${period.start}" id="period-${idx}-start"
+                            placeholder="09:00" maxlength="5"
+                            style="width:68px; padding:7px; border:1px solid #ddd; border-radius:4px; font-size:13px; text-align:center;"
+                            oninput="this.value=this.value.replace(/[^0-9:]/g,'')">
+                        <span>~</span>
+                        <input type="text" value="${period.end}" id="period-${idx}-end"
+                            placeholder="09:40" maxlength="5"
+                            style="width:68px; padding:7px; border:1px solid #ddd; border-radius:4px; font-size:13px; text-align:center;"
+                            oninput="this.value=this.value.replace(/[^0-9:]/g,'')">
+                    </div>`;
             });
-            
-            html += '</div>';
+
+            // 점심 시간 입력
+            const lunchPeriod = periods.find(p => p.period === '점심');
+            if (lunchPeriod) {
+                html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding:8px; background:#fff9e6; border-radius:6px;">
+                    <label style="min-width:55px; font-weight:600; font-size:13px;">🍱 점심:</label>
+                    <input type="text" value="${lunchPeriod.start}" id="lunch-start"
+                        placeholder="12:10" maxlength="5"
+                        style="width:68px; padding:7px; border:1px solid #ddd; border-radius:4px; font-size:13px; text-align:center;"
+                        oninput="this.value=this.value.replace(/[^0-9:]/g,'')">
+                    <span>~</span>
+                    <input type="text" value="${lunchPeriod.end}" id="lunch-end"
+                        placeholder="13:00" maxlength="5"
+                        style="width:68px; padding:7px; border:1px solid #ddd; border-radius:4px; font-size:13px; text-align:center;"
+                        oninput="this.value=this.value.replace(/[^0-9:]/g,'')">
+                </div>`;
+            }
+
+            // 오후 표시방식
+            html += `<div style="padding:10px; background:#f5f5f5; border-radius:8px; margin-bottom:8px;">
+                <label style="display:block; margin-bottom:8px; font-weight:600; font-size:13px;">🌇 오후 시간대 표시 방식:</label>
+                <label style="display:block; margin-bottom:6px; cursor:pointer; font-size:13px;">
+                    <input type="radio" name="afternoonDisplay" value="time" ${afternoonMode==='time'?'checked':''}>
+                    &nbsp;시간 (14:00, 15:00, 16:00...)
+                </label>
+                <label style="display:block; cursor:pointer; font-size:13px;">
+                    <input type="radio" name="afternoonDisplay" value="period" ${afternoonMode==='period'?'checked':''}>
+                    &nbsp;교시 (6교시, 7교시, 8교시... · 40분 간격)
+                </label>
+            </div>`;
+
+            html += `</div>`;
             document.getElementById('scheduleTimeSettings').innerHTML = html;
+        }
+
+        // 점심 위치 변경 시 점심 시간 자동 업데이트
+        function onLunchPositionChange() {
+            const lunchAfter = parseInt(document.getElementById('lunchPosition')?.value || '3');
+            // 선택한 교시(lunchAfter번째)의 끝 시간을 읽어서 점심 시작으로 세팅
+            const prevPeriodEndEl = document.getElementById(`period-${lunchAfter - 1}-end`);
+            if (!prevPeriodEndEl) return;
+            const prevEnd = prevPeriodEndEl.value.trim();
+            if (!prevEnd || !prevEnd.includes(':')) return;
+
+            // 점심 시작 = 바로 앞 교시 끝 시간
+            const lunchStartEl = document.getElementById('lunch-start');
+            const lunchEndEl   = document.getElementById('lunch-end');
+            if (!lunchStartEl || !lunchEndEl) return;
+
+            // 점심 길이 유지 (현재 점심 길이 계산)
+            function toMin(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+            function fromMin(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
+            const oldStart = lunchStartEl.value.trim();
+            const oldEnd   = lunchEndEl.value.trim();
+            const lunchDur = (oldStart && oldEnd && oldStart.includes(':') && oldEnd.includes(':'))
+                ? toMin(oldEnd) - toMin(oldStart) : 50;
+
+            lunchStartEl.value = prevEnd;
+            lunchEndEl.value   = fromMin(toMin(prevEnd) + lunchDur);
         }
         
         function resetScheduleSettings() {
@@ -2887,45 +3026,74 @@
         function saveScheduleSettings() {
             const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
             const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
-            let currentChild = null;
-            if (currentChildId) {
-                currentChild = userInfo.children.find(c => c.id === currentChildId);
-            } else {
-                currentChild = userInfo;
-            }
-            
+            const currentChild = currentChildId
+                ? userInfo.children?.find(c => c.id === currentChildId)
+                : userInfo;
             const grade = currentChild ? parseInt(currentChild.grade) : 1;
             const basePeriods = gradeSchedules[grade] || gradeSchedules['1'];
-            
-            // 입력된 시간 수집 - period 형식(교시/점심)만 저장, hour 형식은 제외
-            const customPeriods = [];
-            basePeriods.forEach((period, idx) => {
-                if (!period.period) return; // { hour: N } 형식은 건너뜀
+            const classPeriods = basePeriods.filter(p => p.period !== '점심');
 
-                const startInput = document.getElementById(`period-${idx}-start`);
-                const endInput = document.getElementById(`period-${idx}-end`);
-                
-                if (startInput && endInput && startInput.value && endInput.value) {
-                    customPeriods.push({
-                        period: period.period,
-                        start: startInput.value,
-                        end: endInput.value
-                    });
-                } else {
-                    // 입력값 없으면 원래 값 유지
-                    customPeriods.push({
-                        period: period.period,
-                        start: period.start,
-                        end: period.end
-                    });
+            function isValidTime(val) {
+                if (!val || !/^\d{1,2}:\d{2}$/.test(val)) return false;
+                const [h, m] = val.split(':').map(Number);
+                return h >= 6 && h <= 22 && m >= 0 && m <= 59;
+            }
+            function padTime(t) {
+                const [h, m] = t.split(':');
+                return `${String(h).padStart(2,'0')}:${m}`;
+            }
+
+            // 교시 시간 수집
+            const collectedPeriods = [];
+            let hasError = false;
+            classPeriods.forEach((period, idx) => {
+                const sv = document.getElementById(`period-${idx}-start`)?.value?.trim();
+                const ev = document.getElementById(`period-${idx}-end`)?.value?.trim();
+                const startEl = document.getElementById(`period-${idx}-start`);
+                const endEl   = document.getElementById(`period-${idx}-end`);
+                const svOk = isValidTime(sv), evOk = isValidTime(ev);
+                if (!svOk || !evOk) {
+                    hasError = true;
+                    if (startEl) startEl.style.border = svOk ? '1px solid #ddd' : '2px solid red';
+                    if (endEl)   endEl.style.border   = evOk ? '1px solid #ddd' : '2px solid red';
+                    return;
                 }
+                collectedPeriods.push({ period: period.period, start: padTime(sv), end: padTime(ev) });
             });
-            
-            // 저장
-            appData.customSchedule[userKey] = customPeriods;
+
+            // 점심 시간 수집
+            const lunchSv = document.getElementById('lunch-start')?.value?.trim();
+            const lunchEv = document.getElementById('lunch-end')?.value?.trim();
+            const lunchStartEl = document.getElementById('lunch-start');
+            const lunchEndEl   = document.getElementById('lunch-end');
+            const lunchSvOk = isValidTime(lunchSv), lunchEvOk = isValidTime(lunchEv);
+            if (!lunchSvOk || !lunchEvOk) {
+                hasError = true;
+                if (lunchStartEl) lunchStartEl.style.border = lunchSvOk ? '1px solid #ddd' : '2px solid red';
+                if (lunchEndEl)   lunchEndEl.style.border   = lunchEvOk ? '1px solid #ddd' : '2px solid red';
+            }
+
+            if (hasError) {
+                showAlert('⚠️ 입력 오류', '빨간 테두리 항목을 24시간제로 올바르게 입력해주세요.\n예) 오후 1시 → 13:00');
+                return;
+            }
+
+            // 점심 위치 반영: N교시 후에 점심 삽입
+            const lunchAfter = parseInt(document.getElementById('lunchPosition')?.value || '3');
+            const lunchEntry = { period: '점심', start: padTime(lunchSv), end: padTime(lunchEv) };
+            const finalPeriods = [
+                ...collectedPeriods.slice(0, lunchAfter),
+                lunchEntry,
+                ...collectedPeriods.slice(lunchAfter)
+            ];
+
+            appData.customSchedule[userKey] = finalPeriods;
+            // 오후 표시방식 저장
+            const afternoonModeEl = document.querySelector('input[name="afternoonDisplay"]:checked');
+            if (!appData.afternoonMode) appData.afternoonMode = {};
+            appData.afternoonMode[userKey] = afternoonModeEl?.value || 'time';
             saveData();
-            
-            showAlert('✅ 저장 완료', '시간표 설정이 저장되었습니다!');
+            showAlert('✅ 저장 완료', `시간표 설정이 저장되었습니다!\n(점심: ${lunchAfter}교시 후)`);
             closeSettings();
             renderCalendar();
         }
