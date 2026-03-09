@@ -270,6 +270,7 @@
             position: relative;
             cursor: pointer;
             transition: background 0.1s;
+            overflow: visible; /* 일정이 칸을 넘어갈 수 있게 */
         }
         
         .time-slot::before {
@@ -1716,7 +1717,23 @@
                                 html += `
                                     <div class="event" 
                                          draggable="false"
-                                         style="position: absolute; top: ${topOffset}%; left: 2px; right: 2px; height: ${heightPx}px; background: ${bgColor}; cursor: pointer; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); z-index: ${zIndex}; border: none;" 
+                                         style="position: absolute; 
+                                                top: ${topOffset}%; 
+                                                left: 0; 
+                                                right: 0; 
+                                                height: ${heightPx}px; 
+                                                background: ${bgColor}; 
+                                                cursor: pointer; 
+                                                padding: 6px 4px; 
+                                                display: flex; 
+                                                flex-direction: column; 
+                                                align-items: center; 
+                                                justify-content: center; 
+                                                border-radius: 4px; 
+                                                box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
+                                                z-index: ${zIndex}; 
+                                                border: none;
+                                                box-sizing: border-box;" 
                                          onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})"
                                          onmouseenter="this.style.zIndex = 100"
                                          onmouseleave="this.style.zIndex = ${zIndex}">
@@ -2662,12 +2679,7 @@
                 }
             });
             
-            // 점심시간 자동 정렬 - 시간순으로 재배치
-            customPeriods.sort((a, b) => {
-                const aStart = a.start.replace(':', '');
-                const bStart = b.start.replace(':', '');
-                return parseInt(aStart) - parseInt(bStart);
-            });
+            // 정렬하지 않음 - 원래 교시 순서(1교시, 2교시, 3교시, 점심, 4교시, 5교시) 유지
             
             // 저장
             appData.customSchedule[userKey] = customPeriods;
