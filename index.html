@@ -263,8 +263,8 @@
         .time-slot {
             border-right: none;
             border-bottom: none;
-            min-height: 80px;
-            height: 80px;
+            min-height: 120px;
+            height: 120px;
             position: relative;
             cursor: pointer;
             transition: background 0.1s;
@@ -708,8 +708,8 @@
             }
             
             .time-slot {
-                min-height: 40px !important;
-                height: 40px !important;
+                min-height: 60px !important;
+                height: 60px !important;
             }
             
             /* 모바일에서는 event 내부 폰트는 인라인 스타일 유지 */
@@ -854,6 +854,7 @@
     <!-- 메인 화면 -->
     <div id="mainScreen" class="main-screen">
         <div class="header">
+            <button class="logout-btn" onclick="openSettingsModal()" style="margin-right: 10px; background: transparent; border: 1px solid #fff; padding: 8px 16px;">⚙️ 설정</button>
             <div class="header-title" id="headerTitle" onclick="toggleChildSelector(event)">
                 시간표
                 <div class="child-selector" id="childSelector"></div>
@@ -1029,9 +1030,9 @@
             </div>
 
             <div class="settings-section">
-                <h3>👶 자녀 관리</h3>
+                <h3>📅 시간표 관리</h3>
                 <div class="child-list" id="childList"></div>
-                <button class="btn" style="margin-top: 10px;" onclick="showAddChild()">+ 자녀 추가</button>
+                <button class="btn" style="margin-top: 10px;" onclick="showAddChild()">+ 시간표 추가</button>
             </div>
 
             <div class="settings-section">
@@ -1044,12 +1045,24 @@
             </div>
 
             <div class="settings-section">
-                <h3>📱 홈화면에 추가</h3>
-                <div class="install-section">
-                    <p><strong>iPhone (Safari):</strong><br>하단 공유 버튼 → "홈 화면에 추가"</p>
-                    <p><strong>Android (Chrome):</strong><br>메뉴(⋮) → "홈 화면에 추가"</p>
-                    <button class="btn" onclick="showInstallGuide()">설치 방법 보기</button>
+                <h3>⏰ 시간표 설정</h3>
+                <p style="font-size: 14px; color: #666; margin-bottom: 15px;">교시 시간과 점심시간을 학교에 맞게 설정하세요</p>
+                
+                <div id="scheduleTimeSettings"></div>
+                
+                <div style="margin-top: 20px;">
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">오후 시간대 표시 방식:</label>
+                    <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                        <input type="radio" name="afternoonDisplay" value="time" checked onchange="updateAfternoonDisplay()"> 
+                        시간 (2:00, 3:00, 4:00...)
+                    </label>
+                    <label style="display: block; cursor: pointer;">
+                        <input type="radio" name="afternoonDisplay" value="period" onchange="updateAfternoonDisplay()"> 
+                        교시 (6교시, 7교시, 8교시...)
+                    </label>
                 </div>
+                
+                <button class="btn" style="margin-top: 15px;" onclick="saveScheduleSettings()">시간표 설정 저장</button>
             </div>
         </div>
     </div>
@@ -1098,11 +1111,15 @@
         // Firebase 초기화
         let database = null;
         try {
-            firebase.initializeApp(firebaseConfig);
-            database = firebase.database();
-            console.log('✅ Firebase 연결 성공');
+            if (typeof firebase !== 'undefined') {
+                firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                console.log('✅ Firebase 연결 성공');
+            } else {
+                console.warn('⚠️ Firebase SDK 로드 안 됨 (LocalStorage만 사용)');
+            }
         } catch (error) {
-            console.log('❌ Firebase 연결 실패 (LocalStorage 사용):', error);
+            console.warn('⚠️ Firebase 연결 실패 (LocalStorage만 사용):', error.message);
         }
         
         const STORAGE_KEY = 'scheduleApp';
@@ -1111,7 +1128,8 @@
         let appData = {
             users: [],
             schedules: {},
-            subjectColors: {} // 과목별 색상 저장
+            subjectColors: {}, // 과목별 색상 저장
+            customSchedule: {} // 사용자별 커스텀 시간표 설정
         };
 
         let currentUser = null;
@@ -1305,6 +1323,11 @@
                 // 기존 데이터 마이그레이션 - subjectColors 필드 추가
                 if (!appData.subjectColors) {
                     appData.subjectColors = {};
+                }
+                
+                // 기존 데이터 마이그레이션 - customSchedule 필드 추가
+                if (!appData.customSchedule) {
+                    appData.customSchedule = {};
                 }
                 
                 // 모든 사용자에게 subjectColors 초기화
@@ -1561,7 +1584,14 @@
             const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
             const currentChild = userInfo.children?.find(c => c.id === currentChildId);
             const grade = currentChild?.grade || '1';
-            const periods = gradeSchedules[grade] || gradeSchedules['1'];
+            
+            // 커스텀 시간표가 있으면 사용, 없으면 기본 학년별 시간표
+            let periods;
+            if (appData.customSchedule && appData.customSchedule[userKey]) {
+                periods = appData.customSchedule[userKey];
+            } else {
+                periods = gradeSchedules[grade] || gradeSchedules['1'];
+            }
             
             // 정규수업 + 방과후 시간 합치기
             const allPeriods = [...periods, ...afterSchoolHours];
@@ -2544,6 +2574,101 @@
         // 설정 관련 함수
         function openSettings() {
             showAlert('📱 홈화면 추가 방법', 'iPhone (Safari):\n하단 공유 버튼(□↑) → "홈 화면에 추가"\n\nAndroid (Chrome):\n메뉴(⋮) → "홈 화면에 추가"\n\n✅ 추가 후 홈화면에서 앱처럼 사용!');
+        }
+        
+        function openSettingsModal() {
+            document.getElementById('settingsModal').style.display = 'block';
+            renderScheduleTimeSettings();
+        }
+        
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+        
+        function renderScheduleTimeSettings() {
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            const customSchedule = appData.customSchedule[userKey] || null;
+            
+            // 현재 자녀 정보 가져오기
+            const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
+            let currentChild = null;
+            if (currentChildId) {
+                currentChild = userInfo.children.find(c => c.id === currentChildId);
+            } else {
+                currentChild = userInfo;
+            }
+            
+            const grade = currentChild ? parseInt(currentChild.grade) : 1;
+            const basePeriods = gradeSchedules[grade] || gradeSchedules['1'];
+            
+            // 커스텀 설정이 있으면 사용, 없으면 기본값
+            const periods = customSchedule || basePeriods;
+            
+            let html = '<div style="max-height: 300px; overflow-y: auto;">';
+            
+            periods.forEach((period, idx) => {
+                const label = period.period || `${period.hour}:00`;
+                html += `
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <label style="min-width: 80px; font-weight: 600;">${label}:</label>
+                        <input type="time" value="${period.start}" id="period-${idx}-start" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <span style="padding: 0 5px;">~</span>
+                        <input type="time" value="${period.end}" id="period-${idx}-end" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            document.getElementById('scheduleTimeSettings').innerHTML = html;
+        }
+        
+        function saveScheduleSettings() {
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
+            let currentChild = null;
+            if (currentChildId) {
+                currentChild = userInfo.children.find(c => c.id === currentChildId);
+            } else {
+                currentChild = userInfo;
+            }
+            
+            const grade = currentChild ? parseInt(currentChild.grade) : 1;
+            const basePeriods = gradeSchedules[grade] || gradeSchedules['1'];
+            
+            // 입력된 시간 수집
+            const customPeriods = [];
+            basePeriods.forEach((period, idx) => {
+                const startInput = document.getElementById(`period-${idx}-start`);
+                const endInput = document.getElementById(`period-${idx}-end`);
+                
+                if (startInput && endInput) {
+                    customPeriods.push({
+                        ...period,
+                        start: startInput.value,
+                        end: endInput.value
+                    });
+                }
+            });
+            
+            // 점심시간 자동 정렬 - 시간순으로 재배치
+            customPeriods.sort((a, b) => {
+                const aStart = a.start.replace(':', '');
+                const bStart = b.start.replace(':', '');
+                return parseInt(aStart) - parseInt(bStart);
+            });
+            
+            // 저장
+            appData.customSchedule[userKey] = customPeriods;
+            saveData();
+            
+            showAlert('✅ 저장 완료', '시간표 설정이 저장되었습니다!');
+            closeSettings();
+            renderCalendar();
+        }
+        
+        function updateAfternoonDisplay() {
+            // 향후 구현: 오후 시간대 표시 방식 변경
+            showAlert('🚧 준비 중', '이 기능은 곧 추가될 예정입니다!');
         }
         
         function toggleChildSelector(event) {
