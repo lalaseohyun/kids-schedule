@@ -196,6 +196,11 @@
             overflow-x: auto;
         }
         
+        .calendar-grid.full-view {
+            display: block;
+            border-left: none;
+        }
+        
         /* 상세보기 전용 스타일 */
         .calendar-grid.detail-view {
             grid-template-columns: 80px 1fr !important;
@@ -245,8 +250,8 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            min-height: 140px;  /* time-slot과 동일 */
-            height: 140px;
+            min-height: 0;  /* 인라인 스타일로 제어 */
+            height: auto;
         }
         
         .time-label::before {
@@ -257,7 +262,6 @@
             right: 0;
             bottom: 0;
             border-right: 1px solid #e0e0e0;
-            border-bottom: 1px solid #e0e0e0;
             pointer-events: none;
             z-index: 1;
         }
@@ -287,6 +291,11 @@
         
         .time-slot.no-border::before {
             display: none;
+        }
+        
+        /* 이벤트가 다음 칸까지 걸칠 때 하단 경계선 숨김 */
+        .time-slot.event-continues-below::before {
+            border-bottom: none;
         }
 
         .time-slot:hover {
@@ -1071,6 +1080,7 @@
                 </div>
                 
                 <button class="btn" style="margin-top: 15px;" onclick="saveScheduleSettings()">시간표 설정 저장</button>
+                <button class="btn" style="margin-top: 10px; background: #e57373; color: white;" onclick="resetScheduleSettings()">기본 시간표로 초기화</button>
             </div>
         </div>
     </div>
@@ -1338,6 +1348,21 @@
                     appData.customSchedule = {};
                 }
                 
+                // customSchedule 데이터 정합성 수정:
+                // { hour: N } 형식이나 start/end가 없는 항목 제거
+                Object.keys(appData.customSchedule).forEach(key => {
+                    const sched = appData.customSchedule[key];
+                    if (Array.isArray(sched)) {
+                        appData.customSchedule[key] = sched.filter(p =>
+                            p.period && typeof p.start === 'string' && typeof p.end === 'string'
+                            && p.start.includes(':') && p.end.includes(':')
+                        );
+                        if (appData.customSchedule[key].length === 0) {
+                            delete appData.customSchedule[key];
+                        }
+                    }
+                });
+                
                 // 모든 사용자에게 subjectColors 초기화
                 appData.users.forEach(user => {
                     const userKey = `${user.nickname}-${user.phone}`;
@@ -1576,48 +1601,61 @@
             const grid = document.getElementById('calendarGrid');
             const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
             
-            // 안전한 데이터 접근
             if (!appData.schedules[userKey]) {
-                appData.schedules[userKey] = {
-                    월: [], 화: [], 수: [], 목: [], 금: [], 토: []
-                };
+                appData.schedules[userKey] = { 월: [], 화: [], 수: [], 목: [], 금: [], 토: [] };
             }
             if (!appData.subjectColors[userKey]) {
                 appData.subjectColors[userKey] = {};
             }
             
             const schedules = appData.schedules[userKey];
-
-            // 현재 자녀의 학년 가져오기
             const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
             const currentChild = userInfo.children?.find(c => c.id === currentChildId);
             const grade = currentChild?.grade || '1';
             
-            // 커스텀 시간표가 있으면 사용, 없으면 기본 학년별 시간표
             let periods;
             if (appData.customSchedule && appData.customSchedule[userKey]) {
                 periods = appData.customSchedule[userKey];
             } else {
                 periods = gradeSchedules[grade] || gradeSchedules['1'];
             }
-            
-            // 정규수업 + 방과후 시간 합치기
-            const allPeriods = [...periods, ...afterSchoolHours];
 
+            // 항상 정합성 검사: start/end 문자열이 없는 항목 제거
+            periods = periods.filter(p =>
+                p.period &&
+                typeof p.start === 'string' && p.start.includes(':') &&
+                typeof p.end === 'string' && p.end.includes(':')
+            );
+            if (periods.length === 0) {
+                periods = gradeSchedules[grade] || gradeSchedules['1'];
+                if (appData.customSchedule) delete appData.customSchedule[userKey];
+                saveData();
+            }
+
+            // afterSchoolHours에서 교시 시간과 겹치는 항목 제거
+            const periodEndMin = periods.length > 0
+                ? Math.max(...periods.map(p => p.period ? timeToMinutes(p.end) : (p.hour + 1) * 60))
+                : 0;
+            const filteredAfterSchool = afterSchoolHours.filter(h => {
+                const hStart = h.hour * 60;
+                const hEnd = (h.hour + 1) * 60;
+                // 교시 시간대와 전혀 겹치지 않는 것만 포함
+                return hStart >= periodEndMin;
+            });
+
+            const allPeriods = [...periods, ...filteredAfterSchool].sort((a, b) => {
+                const aStart = a.period ? timeToMinutes(a.start) : a.hour * 60;
+                const bStart = b.period ? timeToMinutes(b.start) : b.hour * 60;
+                return aStart - bStart;
+            });
             const allDays = ['월', '화', '수', '목', '금', '토'];
             const days = currentDayFilter === 'all' ? allDays : [currentDayFilter];
 
-            // 상세보기일 때 각 period별 높이 미리 계산
-            const periodHeights = {};
+            // ─── 상세보기 ───────────────────────────────────────────
             if (currentDayFilter !== 'all') {
                 const day = currentDayFilter;
-                
-                // 먼저 기본 높이로 초기화
-                allPeriods.forEach((period, idx) => {
-                    periodHeights[idx] = 40;
-                });
-                
-                // 각 일정을 확인하고 걸쳐있는 모든 칸의 높이를 늘림
+                const periodHeights = {};
+                allPeriods.forEach((period, idx) => { periodHeights[idx] = 40; });
                 const daySchedules = schedules[day] || [];
                 daySchedules.forEach(event => {
                     let detailsCount = 0;
@@ -1625,216 +1663,387 @@
                     if (event.contact) detailsCount++;
                     if (event.memo) detailsCount++;
                     const eventHeight = 60 + (detailsCount * 25) + 10;
-                    
-                    // 이 일정이 걸쳐있는 모든 period 찾기
                     allPeriods.forEach((period, idx) => {
-                        const isIn = period.period 
-                            ? isEventInPeriod(event, period)
-                            : isEventInHour(event, period.hour);
-                        
-                        if (isIn) {
-                            // 이 period에 일정이 있으면 높이 업데이트
-                            periodHeights[idx] = Math.max(periodHeights[idx], eventHeight + 20);
-                        }
+                        const isIn = period.period ? isEventInPeriod(event, period) : isEventInHour(event, period.hour);
+                        if (isIn) periodHeights[idx] = Math.max(periodHeights[idx], eventHeight + 20);
                     });
                 });
-            }
 
-            // 첫 번째 빈 칸 (왼쪽 상단 코너)
-            let html = '';
-            if (currentDayFilter === 'all') {
-                html += '<div class="day-header"></div>';
-            } else {
-                // 상세보기일 때는 첫 번째 period와 같은 높이
+                let html = '';
                 const firstPeriodHeight = periodHeights[0] || 40;
                 html += `<div class="day-header" style="height: ${firstPeriodHeight}px;"></div>`;
-            }
-            
-            if (currentDayFilter === 'all') {
-                // 전체 보기 - 모든 요일 헤더
-                allDays.forEach(day => {
-                    html += `<div class="day-header" onclick="filterByDay('${day}')">${day}</div>`;
-                });
-            } else {
-                // 상세 보기 - 뒤로가기 + 선택된 요일 (높이 동일하게)
-                const firstPeriodHeight = periodHeights[0] || 40;
                 html += `<div class="day-header active" onclick="filterByDay('all')" style="height: ${firstPeriodHeight}px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;">← 전체</div>`;
+
+                allPeriods.forEach((period, idx) => {
+                    const displayLabel = period.hour ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`) : period.period;
+                    const isLunch = period.period === '점심';
+                    const detailViewHeight = periodHeights[idx] || 40;
+                    const slotStyle = `height: ${detailViewHeight}px; min-height: ${detailViewHeight}px;`;
+                    const dayEscaped = day.replace(/'/g, "\\'");
+
+                    html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 14px; display: flex; align-items: center; justify-content: center; font-weight: 600;">${displayLabel}</div>`;
+
+                    if (isLunch && day !== '토') {
+                        html += `<div class="time-slot no-border" style="${slotStyle} cursor: default; background: #fafafa; padding: 10px 0; display: flex; align-items: center; justify-content: center;">
+                            <div style="font-size: 12px; color: #999; text-align: center;">${period.start}-${period.end}</div>
+                        </div>`;
+                    } else {
+                        if (isLunch) html += `<div class="time-slot no-border" style="${slotStyle} padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                        else if (period.period) html += `<div class="time-slot no-border" style="${slotStyle} padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                        else html += `<div class="time-slot no-border" style="${slotStyle} padding: 10px 0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
+
+                        const periodSchedules = daySchedules.filter(event =>
+                            period.period ? isEventInPeriod(event, period) : isEventInHour(event, period.hour)
+                        );
+                        periodSchedules.forEach((event) => {
+                            const eventIdx = daySchedules.indexOf(event);
+                            const subjectColors = appData.subjectColors[userKey] || {};
+                            const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
+                            let detailsCount = 0;
+                            if (event.teacher) detailsCount++;
+                            if (event.contact) detailsCount++;
+                            if (event.memo) detailsCount++;
+                            const eventHeight = 60 + (detailsCount * 25);
+                            html += `<div class="event" draggable="false"
+                                style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: ${eventHeight}px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 4px;"
+                                onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
+                                <div class="event-name" style="font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">${event.name || ''}</div>
+                                <div class="event-time" style="font-size: 16px; margin-bottom: 12px; text-align: center; font-weight: 500;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                ${event.teacher ? `<div class="event-details" style="font-size: 14px; margin-top: 6px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
+                                ${event.contact ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; text-align: center;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="event.stopPropagation();" style="color: inherit; text-decoration: none;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
+                                ${event.memo ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; line-height: 1.6; text-align: center; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
+                            </div>`;
+                        });
+                        html += '</div>';
+                    }
+                });
+
+                grid.innerHTML = html;
+                grid.classList.remove('full-view');
+                grid.classList.add('detail-view');
+                return;
             }
 
-            allPeriods.forEach((period, idx) => {
-                // 교시 또는 시간 표시
-                const label = period.period || `${period.hour}:00`;
-                const displayLabel = period.hour ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`) : period.period;
-                
-                // 모든 칸은 CSS에서 설정된 높이 사용
-                const isLunch = period.period === '점심';
-                
-                // 상세보기 높이
-                const detailViewHeight = periodHeights[idx] || 40;
-                
-                // 왼쪽 라벨 - 높이 통일
-                if (currentDayFilter === 'all') {
-                    // 전체보기: CSS에서 설정된 time-slot 높이와 동일하게
-                    html += `<div class="time-label" style="font-size: 9px;">${displayLabel}</div>`;
-                } else {
-                    html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 14px; display: flex; align-items: center; justify-content: center; font-weight: 600;">${displayLabel}</div>`;
-                }
-                
-                days.forEach(day => {
-                    const dayEscaped = day.replace(/'/g, "\\'");
-                    
-                    if (currentDayFilter === 'all') {
-                        // 전체 보기 - CSS 기본 높이 사용
-                        if (isLunch && day !== '토') {
-                            // 점심시간 - 토요일 제외하고 클릭 불가, 시간만 표시
-                            html += `<div class="time-slot" style="cursor: default; background: #fafafa; display: flex; align-items: center; justify-content: center;">
-                                <div style="font-size: 10px; color: #999; text-align: center;">${period.start}-${period.end}</div>
-                            </div>`;
-                        } else if (isLunch && day === '토') {
-                            // 토요일 점심시간 - 일반 시간처럼 클릭 가능
-                            html += `<div class="time-slot" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
-                        } else if (period.period) {
-                            // 정규 수업 시간
-                            html += `<div class="time-slot" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
-                        } else {
-                            // 방과후 시간
-                            html += `<div class="time-slot" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
-                        }
-                        
-                        // 해당 시간대의 일정 렌더링 (점심시간 제외)
-                        if (!(isLunch && day !== '토')) {
-                            const daySchedules = schedules[day] || [];
-                            const relevantEvents = getEventsForPeriod(daySchedules, period, allPeriods);
-                            
-                            relevantEvents.forEach(({ event, eventIdx, topOffset, heightPercent, isFirstPiece }, renderIdx) => {
-                                const subjectColors = appData.subjectColors[userKey] || {};
-                                const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
-                                
-                                // z-index를 높게 해서 경계선보다 앞으로
-                                const zIndex = 50 + renderIdx;
-                                
-                                // 첫 조각만 텍스트 표시, 나머지는 색상만
-                                let content = '';
-                                let borderRadius = '0';
-                                let styleTop = topOffset + '%';
-                                let styleHeight = heightPercent + '%';
-                                
-                                if (isFirstPiece) {
-                                    // 첫 조각: 텍스트 표시
-                                    content = `
-                                        <div class="event-name" style="font-size: 10px; font-weight: 600; margin-bottom: 1px; text-align: center; line-height: 1.2;">${event.name || ''}</div>
-                                        <div class="event-time" style="font-size: 8px; opacity: 0.8; text-align: center;">${formatTimeRange(event.startTime, event.endTime)}</div>
-                                    `;
-                                    borderRadius = '4px 4px 0 0';
-                                } else {
-                                    // 연결 조각: 위로 1px 올리고 1px 더 길게
-                                    borderRadius = '0';
-                                    styleTop = `calc(${topOffset}% - 1px)`;
-                                    styleHeight = `calc(${heightPercent}% + 1px)`;
-                                }
+            // ─── 전체보기: flexbox + 절대픽셀 방식 ───────────────────────
+            // grid-row span 방식 완전 포기 → 라벨/컬럼 모두 같은 컨테이너 안에서 px로 정렬
 
-                                html += `
-                                    <div class="event" 
-                                         draggable="false"
-                                         style="position: absolute; 
-                                                top: ${styleTop}; 
-                                                left: 0; 
-                                                right: 0; 
-                                                height: ${styleHeight}; 
-                                                background: ${bgColor}; 
-                                                cursor: pointer; 
-                                                padding: 6px 4px; 
-                                                display: flex; 
-                                                flex-direction: column; 
-                                                align-items: center; 
-                                                justify-content: center; 
-                                                border-radius: ${borderRadius}; 
-                                                box-shadow: ${isFirstPiece ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'}; 
-                                                z-index: ${zIndex}; 
-                                                border: none;
-                                                box-sizing: border-box;" 
-                                         onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})"
-                                         onmouseenter="this.style.zIndex = 100"
-                                         onmouseleave="this.style.zIndex = ${zIndex}">
-                                        ${content}
-                                    </div>
-                                `;
-                            });
-                        }
-                    } else {
-                        // 상세 보기 - detailViewHeight로 통일
-                        const slotStyleDetail = `height: ${detailViewHeight}px; min-height: ${detailViewHeight}px;`;
-                            
-                        if (isLunch && day !== '토') {
-                            // 점심시간 - 토요일 제외하고 클릭 불가, 시간만 표시
-                            html += `<div class="time-slot no-border" style="${slotStyleDetail} cursor: default; background: #fafafa; padding: 10px 0; display: flex; align-items: center; justify-content: center;">
-                                <div style="font-size: 12px; color: #999; text-align: center;">${period.start}-${period.end}</div>
-                            </div>`;
-                        } else if (isLunch && day === '토') {
-                            // 토요일 점심시간 - 클릭 가능
-                            html += `<div class="time-slot no-border" style="${slotStyleDetail} padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
-                        } else if (period.period) {
-                            html += `<div class="time-slot no-border" style="${slotStyleDetail} padding: 10px 0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
-                        } else {
-                            html += `<div class="time-slot no-border" style="${slotStyleDetail} padding: 10px 0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
-                        }
-                        
-                        if (!(isLunch && day !== '토')) {
-                            const daySchedules = schedules[day] || [];
-                            const periodSchedules = daySchedules.filter(event => {
-                                return period.period 
-                                    ? isEventInPeriod(event, period)
-                                    : isEventInHour(event, period.hour);
-                            });
-                            
-                            if (periodSchedules.length > 0) {
-                                periodSchedules.forEach((event) => {
-                                    const eventIdx = daySchedules.indexOf(event);
-                                    const subjectColors = appData.subjectColors[userKey] || {};
-                                    const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
-                                    
-                                    // 상세 정보 개수에 따라 높이 계산
-                                    let detailsCount = 0;
-                                    if (event.teacher) detailsCount++;
-                                    if (event.contact) detailsCount++;
-                                    if (event.memo) detailsCount++;
-                                    
-                                    // 기본 60px + 상세정보마다 25px 추가
-                                    const eventHeight = 60 + (detailsCount * 25);
+            const isMobile = window.innerWidth <= 768;
+            const isTablet = window.innerWidth >= 769 && window.innerWidth <= 1024;
+            const BASE_SLOT_HEIGHT = isMobile ? 55 : isTablet ? 100 : 140; // 60분 기준 높이
+            const PX_PER_MIN = BASE_SLOT_HEIGHT / 60;
 
-                                    html += `
-                                        <div class="event" 
-                                             draggable="false"
-                                             style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: ${eventHeight}px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 4px;" 
-                                             onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
-                                            <div class="event-name" style="font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">${event.name || ''}</div>
-                                            <div class="event-time" style="font-size: 16px; margin-bottom: 12px; text-align: center; font-weight: 500;">${formatTimeRange(event.startTime, event.endTime)}</div>
-                                            ${event.teacher ? `<div class="event-details" style="font-size: 14px; margin-top: 6px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
-                                            ${event.contact ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; text-align: center;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="event.stopPropagation();" style="color: inherit; text-decoration: none;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
-                                            ${event.memo ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; line-height: 1.6; text-align: center; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
-                                        </div>
-                                    `;
-                                });
-                            }
-                        }
+            function getPeriodMinutes(period) {
+                if (period.period) {
+                    const s = timeToMinutes(period.start);
+                    const e = timeToMinutes(period.end);
+                    // 유효하지 않은 시간이면 hour 방식으로 fallback
+                    if (isNaN(s) || isNaN(e)) {
+                        return { start: 0, end: 0 };
                     }
+                    return { start: s, end: e };
+                } else {
+                    return { start: (period.hour || 0) * 60, end: ((period.hour || 0) + 1) * 60 };
+                }
+            }
 
-                    html += '</div>';
+            const firstPeriodMin = getPeriodMinutes(allPeriods[0]).start;
+            const lastPeriodEnd  = getPeriodMinutes(allPeriods[allPeriods.length - 1]).end;
+            const totalColHeight = (lastPeriodEnd - firstPeriodMin) * PX_PER_MIN;
+
+            function timeToPx(minutes) {
+                return (minutes - firstPeriodMin) * PX_PER_MIN;
+            }
+
+            // allPeriods 사이 갭(쉬는시간) 포함한 전체 행 목록
+            // spread 충돌 방지: startMin/endMin/isGap만 명시적으로 사용
+            const displayRows = [];
+            allPeriods.forEach((period, idx) => {
+                if (idx > 0) {
+                    const prevEnd  = getPeriodMinutes(allPeriods[idx - 1]).end;
+                    const curStart = getPeriodMinutes(period).start;
+                    if (curStart > prevEnd) {
+                        displayRows.push({
+                            isGap: true,
+                            startMin: prevEnd,
+                            endMin: curStart,
+                            labelText: ''
+                        });
+                    }
+                }
+                const { start, end } = getPeriodMinutes(period);
+                const labelText = period.hour
+                    ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`)
+                    : (period.period || '');
+                const isLunch = period.period === '점심';
+                displayRows.push({
+                    isGap: false,
+                    isLunch: isLunch,
+                    startMin: start,
+                    endMin: end,
+                    labelText: labelText,
+                    lunchLabel: isLunch ? `${period.start}-${period.end}` : ''
                 });
             });
 
-            grid.innerHTML = html;
-            
-            // 그리드 컬럼 조정
-            if (currentDayFilter === 'all') {
-                // 전체보기
-                grid.classList.add('full-view');
-                grid.classList.remove('detail-view');
+            // calendarGrid를 grid 대신 flex 컨테이너로 쓸 것이므로
+            // 여기서는 innerHTML을 직접 단일 div로 교체
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = `
+                display: flex;
+                flex-direction: column;
+                width: 100%;
+                min-width: 100%;
+            `;
+
+            // ── 헤더 행 ──
+            const headerRow = document.createElement('div');
+            headerRow.style.cssText = `
+                display: flex;
+                flex-direction: row;
+                border-bottom: 1px solid #e0e0e0;
+                background: #fafafa;
+                position: sticky;
+                top: 0;
+                z-index: 20;
+            `;
+
+            // 헤더: 라벨 열
+            const cornerCell = document.createElement('div');
+            cornerCell.style.cssText = `flex: 0 0 ${isMobile ? 40 : 50}px; border-right: 1px solid #e0e0e0; border-left: 1px solid #e0e0e0;`;
+            headerRow.appendChild(cornerCell);
+
+            allDays.forEach(day => {
+                const dh = document.createElement('div');
+                dh.style.cssText = `
+                    flex: 1;
+                    text-align: center;
+                    padding: ${isMobile ? '8px 4px' : '16px 8px'};
+                    font-weight: 600;
+                    font-size: ${isMobile ? '14px' : '18px'};
+                    border-right: 1px solid #e0e0e0;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                `;
+                dh.textContent = day;
+                dh.onclick = () => filterByDay(day);
+                dh.onmouseover = () => dh.style.background = '#e8e8e8';
+                dh.onmouseout  = () => dh.style.background = '';
+                headerRow.appendChild(dh);
+            });
+            wrapper.appendChild(headerRow);
+
+            // ── 본문: 라벨열 + 요일열들을 가로로 나란히 ──
+            const bodyRow = document.createElement('div');
+            bodyRow.style.cssText = `display: flex; flex-direction: row; position: relative;`;
+
+            // 라벨 열
+            const labelCol = document.createElement('div');
+            labelCol.style.cssText = `
+                flex: 0 0 ${isMobile ? 40 : 50}px;
+                position: relative;
+                height: ${totalColHeight}px;
+                border-left: 1px solid #e0e0e0;
+                border-right: 1px solid #e0e0e0;
+                box-sizing: border-box;
+            `;
+
+            displayRows.forEach(row => {
+                const topPx    = timeToPx(row.startMin);
+                const heightPx = (row.endMin - row.startMin) * PX_PER_MIN;
+
+                // 경계선
+                const line = document.createElement('div');
+                line.style.cssText = `position:absolute; left:0; right:0; top:${topPx}px; height:${heightPx}px; border-bottom:1px solid #e0e0e0; box-sizing:border-box;`;
+                labelCol.appendChild(line);
+
+                if (row.isGap) return;
+
+                const lbl = document.createElement('div');
+                lbl.style.cssText = `
+                    position: absolute;
+                    left: 0; right: 0;
+                    top: ${topPx}px;
+                    height: ${heightPx}px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: ${isMobile ? '8px' : '9px'};
+                    font-weight: 600;
+                    color: #333;
+                    pointer-events: none;
+                `;
+                lbl.textContent = row.labelText;
+                labelCol.appendChild(lbl);
+            });
+            bodyRow.appendChild(labelCol);
+
+            // 요일 컬럼들
+            allDays.forEach(day => {
+                const dayEscaped = day.replace(/'/g, "\\'");
+                const daySchedules = schedules[day] || [];
+                const subjectColors = appData.subjectColors[userKey] || {};
+
+                const col = document.createElement('div');
+                col.style.cssText = `
+                    flex: 1;
+                    position: relative;
+                    height: ${totalColHeight}px;
+                    border-right: 1px solid #e0e0e0;
+                    box-sizing: border-box;
+                    cursor: pointer;
+                `;
+                col.onclick = (e) => handleColumnClick(e, day, grade);
+
+                // 배경 격자선
+                displayRows.forEach(row => {
+                    const topPx    = timeToPx(row.startMin);
+                    const heightPx = (row.endMin - row.startMin) * PX_PER_MIN;
+
+                    const bg = document.createElement('div');
+                    let bgColor = 'transparent';
+                    if (row.isLunch && day !== '토') bgColor = '#fafafa';
+                    else if (row.isGap) bgColor = '#f9f9f9';
+
+                    bg.style.cssText = `
+                        position: absolute; left:0; right:0;
+                        top:${topPx}px; height:${heightPx}px;
+                        background:${bgColor};
+                        border-bottom:1px solid #e0e0e0;
+                        box-sizing:border-box;
+                        pointer-events:none;
+                    `;
+
+                    if (row.isLunch && day !== '토') {
+                        bg.style.display = 'flex';
+                        bg.style.alignItems = 'center';
+                        bg.style.justifyContent = 'center';
+                        const txt = document.createElement('div');
+                        txt.style.cssText = `font-size:10px; color:#999;`;
+                        txt.textContent = row.lunchLabel;
+                        bg.appendChild(txt);
+                    }
+                    col.appendChild(bg);
+                });
+
+                // 이벤트 블록
+                daySchedules.forEach((event, eventIdx) => {
+                    const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
+                    const eventStartMin = timeToMinutes(event.startTime);
+                    const eventEndMin   = timeToMinutes(event.endTime);
+                    const topPx    = timeToPx(eventStartMin);
+                    const heightPx = (eventEndMin - eventStartMin) * PX_PER_MIN;
+                    if (heightPx <= 0) return;
+
+                    const ev = document.createElement('div');
+                    ev.style.cssText = `
+                        position: absolute;
+                        top: ${topPx}px;
+                        left: 2px; right: 2px;
+                        height: ${heightPx}px;
+                        background: ${bgColor};
+                        border-radius: 4px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        overflow: hidden;
+                        z-index: 10;
+                        cursor: pointer;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                        box-sizing: border-box;
+                        padding: 2px;
+                    `;
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.style.cssText = `font-size:${isMobile?'9px':'11px'}; font-weight:600; text-align:center; line-height:1.2; color:#000;`;
+                    nameDiv.textContent = event.name || '';
+
+                    const timeDiv = document.createElement('div');
+                    timeDiv.style.cssText = `font-size:${isMobile?'8px':'9px'}; opacity:0.75; text-align:center; margin-top:1px; color:#000;`;
+                    timeDiv.textContent = formatTimeRange(event.startTime, event.endTime);
+
+                    ev.appendChild(nameDiv);
+                    ev.appendChild(timeDiv);
+
+                    ev.onclick = (e) => { e.stopPropagation(); editEvent(day, eventIdx); };
+                    ev.onmouseenter = () => ev.style.zIndex = '50';
+                    ev.onmouseleave = () => ev.style.zIndex = '10';
+
+                    col.appendChild(ev);
+                });
+
+                bodyRow.appendChild(col);
+            });
+
+            wrapper.appendChild(bodyRow);
+
+            grid.innerHTML = '';
+            grid.appendChild(wrapper);
+            grid.classList.add('full-view');
+            grid.classList.remove('detail-view');
+        }
+
+        // 컬럼 클릭 핸들러 (빈 칸 클릭 시 일정 추가)
+        function handleColumnClick(e, day, grade) {
+            if (e.target.closest('.event')) return;
+
+            const rect = e.currentTarget.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            let periods;
+            if (appData.customSchedule && appData.customSchedule[userKey]) {
+                periods = appData.customSchedule[userKey];
             } else {
-                // 상세보기
-                grid.classList.remove('full-view');
-                grid.classList.add('detail-view');
+                periods = gradeSchedules[grade] || gradeSchedules['1'];
             }
+            const allPeriods = (() => {
+                const periodEndMin = periods.length > 0
+                    ? Math.max(...periods.map(p => p.period ? timeToMinutes(p.end) : (p.hour + 1) * 60))
+                    : 0;
+                return [...periods, ...afterSchoolHours.filter(h => h.hour * 60 >= periodEndMin)]
+                    .sort((a, b) => {
+                        const aS = a.period ? timeToMinutes(a.start) : a.hour * 60;
+                        const bS = b.period ? timeToMinutes(b.start) : b.hour * 60;
+                        return aS - bS;
+                    });
+            })();
+
+            const isMobile = window.innerWidth <= 768;
+            const isTablet = window.innerWidth >= 769 && window.innerWidth <= 1024;
+            const BASE_SLOT_HEIGHT = isMobile ? 55 : isTablet ? 100 : 140;
+            const PX_PER_MIN = BASE_SLOT_HEIGHT / 60;
+
+            function getMinutes(p) {
+                return p.period
+                    ? { start: timeToMinutes(p.start), end: timeToMinutes(p.end) }
+                    : { start: p.hour * 60, end: (p.hour + 1) * 60 };
+            }
+            const firstMin = getMinutes(allPeriods[0]).start;
+            const clickedMin = firstMin + y / PX_PER_MIN;
+
+            // 클릭 위치에 해당하는 period 찾기
+            let period = null;
+            for (const p of allPeriods) {
+                const { start, end } = getMinutes(p);
+                if (clickedMin >= start && clickedMin < end) { period = p; break; }
+            }
+            if (!period) return;
+
+            const isLunch = period.period === '점심';
+            if (isLunch && day !== '토') return;
+
+            const daySelect = document.getElementById('eventDay');
+            if (daySelect) daySelect.value = day;
+
+            if (period.period) {
+                document.getElementById('eventStart').value = period.start;
+                document.getElementById('eventEnd').value = period.end;
+            } else {
+                document.getElementById('eventStart').value = `${String(period.hour).padStart(2, '0')}:00`;
+                document.getElementById('eventEnd').value = `${String(period.hour + 1).padStart(2, '0')}:00`;
+            }
+            openAddModal();
         }
         
         // 해당 시간대에 표시할 일정과 위치/높이 계산
@@ -2644,6 +2853,17 @@
             document.getElementById('scheduleTimeSettings').innerHTML = html;
         }
         
+        function resetScheduleSettings() {
+            const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
+            if (appData.customSchedule && appData.customSchedule[userKey]) {
+                delete appData.customSchedule[userKey];
+                saveData();
+            }
+            showAlert('✅ 초기화 완료', '기본 학년 시간표로 복원되었습니다.');
+            closeSettings();
+            renderCalendar();
+        }
+
         function saveScheduleSettings() {
             const userKey = currentChildId || `${currentUser.nickname}-${currentUser.phone}`;
             const userInfo = getUserInfo(currentUser.nickname, currentUser.phone);
@@ -2657,22 +2877,29 @@
             const grade = currentChild ? parseInt(currentChild.grade) : 1;
             const basePeriods = gradeSchedules[grade] || gradeSchedules['1'];
             
-            // 입력된 시간 수집
+            // 입력된 시간 수집 - period 형식(교시/점심)만 저장, hour 형식은 제외
             const customPeriods = [];
             basePeriods.forEach((period, idx) => {
+                if (!period.period) return; // { hour: N } 형식은 건너뜀
+
                 const startInput = document.getElementById(`period-${idx}-start`);
                 const endInput = document.getElementById(`period-${idx}-end`);
                 
-                if (startInput && endInput) {
+                if (startInput && endInput && startInput.value && endInput.value) {
                     customPeriods.push({
-                        ...period,
+                        period: period.period,
                         start: startInput.value,
                         end: endInput.value
                     });
+                } else {
+                    // 입력값 없으면 원래 값 유지
+                    customPeriods.push({
+                        period: period.period,
+                        start: period.start,
+                        end: period.end
+                    });
                 }
             });
-            
-            // 정렬하지 않음 - 원래 교시 순서(1교시, 2교시, 3교시, 점심, 4교시, 5교시) 유지
             
             // 저장
             appData.customSchedule[userKey] = customPeriods;
