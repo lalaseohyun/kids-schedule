@@ -245,6 +245,8 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            min-height: 140px;  /* time-slot과 동일 */
+            height: 140px;
         }
         
         .time-label::before {
@@ -705,6 +707,8 @@
             
             .time-label {
                 padding: 4px 2px !important;
+                min-height: 55px !important;
+                height: 55px !important;
             }
             
             .time-slot {
@@ -737,6 +741,8 @@
             
             .time-label {
                 font-size: 11px;
+                min-height: 100px;
+                height: 100px;
             }
             
             .time-slot {
@@ -775,6 +781,8 @@
             
             .time-label {
                 font-size: 12px;
+                min-height: 140px;
+                height: 140px;
             }
             
             .time-slot {
@@ -1658,16 +1666,16 @@
                 const label = period.period || `${period.hour}:00`;
                 const displayLabel = period.hour ? (period.hour <= 12 ? `${period.hour}:00` : `${period.hour - 12}:00`) : period.period;
                 
-                // 모든 칸 40px로 통일 (전체보기)
+                // 모든 칸은 CSS에서 설정된 높이 사용
                 const isLunch = period.period === '점심';
-                const slotHeight = 'height: 40px; min-height: 40px;';
                 
                 // 상세보기 높이
                 const detailViewHeight = periodHeights[idx] || 40;
                 
                 // 왼쪽 라벨 - 높이 통일
                 if (currentDayFilter === 'all') {
-                    html += `<div class="time-label" style="height: 40px; min-height: 40px; font-size: 9px;">${displayLabel}</div>`;
+                    // 전체보기: CSS에서 설정된 time-slot 높이와 동일하게
+                    html += `<div class="time-label" style="font-size: 9px;">${displayLabel}</div>`;
                 } else {
                     html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 14px; display: flex; align-items: center; justify-content: center; font-weight: 600;">${displayLabel}</div>`;
                 }
@@ -1676,21 +1684,21 @@
                     const dayEscaped = day.replace(/'/g, "\\'");
                     
                     if (currentDayFilter === 'all') {
-                        // 전체 보기 - 40px 고정
+                        // 전체 보기 - CSS 기본 높이 사용
                         if (isLunch && day !== '토') {
                             // 점심시간 - 토요일 제외하고 클릭 불가, 시간만 표시
-                            html += `<div class="time-slot" style="${slotHeight} cursor: default; background: #fafafa; display: flex; align-items: center; justify-content: center;">
+                            html += `<div class="time-slot" style="cursor: default; background: #fafafa; display: flex; align-items: center; justify-content: center;">
                                 <div style="font-size: 10px; color: #999; text-align: center;">${period.start}-${period.end}</div>
                             </div>`;
                         } else if (isLunch && day === '토') {
                             // 토요일 점심시간 - 일반 시간처럼 클릭 가능
-                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
+                            html += `<div class="time-slot" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
                         } else if (period.period) {
                             // 정규 수업 시간
-                            html += `<div class="time-slot" style="${slotHeight}" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
+                            html += `<div class="time-slot" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
                         } else {
                             // 방과후 시간
-                            html += `<div class="time-slot" style="height: 40px; min-height: 40px;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
+                            html += `<div class="time-slot" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${dayEscaped}', ${idx})" ondragleave="handleDragLeave(event)">`;
                         }
                         
                         // 해당 시간대의 일정 렌더링 (점심시간 제외)
@@ -1827,16 +1835,20 @@
                     let totalHeight = 0;
                     let currentTime = eventStart;
                     
+                    // CSS에서 실제 time-slot 높이 가져오기
+                    const tempSlot = document.querySelector('.time-slot');
+                    const computedHeight = tempSlot ? parseFloat(getComputedStyle(tempSlot).height) : 55;
+                    
                     allPeriods.forEach(p => {
                         let pStart, pEnd, pHeight;
                         if (p.period) {
                             pStart = timeToMinutes(p.start);
                             pEnd = timeToMinutes(p.end);
-                            pHeight = 40; // 모두 40px
+                            pHeight = computedHeight; // CSS에서 가져온 높이
                         } else {
                             pStart = p.hour * 60;
                             pEnd = (p.hour + 1) * 60;
-                            pHeight = 40;
+                            pHeight = computedHeight;
                         }
                         
                         // 일정이 이 period와 겹치는 부분 계산
