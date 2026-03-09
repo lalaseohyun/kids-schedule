@@ -1706,12 +1706,27 @@
                             const daySchedules = schedules[day] || [];
                             const relevantEvents = getEventsForPeriod(daySchedules, period, allPeriods);
                             
-                            relevantEvents.forEach(({ event, eventIdx, topOffset, heightPx }, renderIdx) => {
+                            relevantEvents.forEach(({ event, eventIdx, topOffset, heightPx, heightPercent }, renderIdx) => {
                                 const subjectColors = appData.subjectColors[userKey] || {};
                                 const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
                                 
                                 // z-index를 높게 해서 나중 일정이 위로
                                 const zIndex = 10 + renderIdx;
+                                
+                                // 일정이 칸을 완전히 채우는지 확인
+                                const isFullHeight = heightPercent > 99;
+                                const isTop = topOffset < 1;
+                                const isBottom = (topOffset + heightPercent) > 99;
+                                
+                                // border-radius: 시작/끝 부분만
+                                let borderRadius = '0';
+                                if (isTop && isBottom) {
+                                    borderRadius = '4px'; // 전체
+                                } else if (isTop) {
+                                    borderRadius = '4px 4px 0 0'; // 상단만
+                                } else if (isBottom) {
+                                    borderRadius = '0 0 4px 4px'; // 하단만
+                                }
 
                                 html += `
                                     <div class="event" 
@@ -1728,7 +1743,7 @@
                                                 flex-direction: column; 
                                                 align-items: center; 
                                                 justify-content: center; 
-                                                border-radius: 4px; 
+                                                border-radius: ${borderRadius}; 
                                                 box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
                                                 z-index: ${zIndex}; 
                                                 border: none;
@@ -1844,22 +1859,26 @@
                 
                 // 이 period와 일정이 겹치는지 확인
                 if (eventStart < periodEnd && eventEnd > periodStart) {
-                    // 이 period 내에서 일정이 차지하는 구간
+                    // 이 period 내에서 일정이 차지하는 구간 계산
                     const overlapStart = Math.max(eventStart, periodStart);
                     const overlapEnd = Math.min(eventEnd, periodEnd);
+                    const overlapDuration = overlapEnd - overlapStart;
                     
-                    // top 위치: period 시작점 기준 (%)
+                    // top 위치: period 시작점으로부터의 비율 (%)
                     const topOffset = ((overlapStart - periodStart) / periodDuration) * 100;
                     
-                    // 높이: 이 period 내에서 차지하는 시간의 비율
-                    const overlapDuration = overlapEnd - overlapStart;
-                    const heightPx = (overlapDuration / periodDuration) * slotHeight;
+                    // 높이: 이 period 내에서 차지하는 비율
+                    const heightPercent = (overlapDuration / periodDuration) * 100;
+                    
+                    // 실제 픽셀 높이
+                    const heightPx = (heightPercent / 100) * slotHeight;
                     
                     result.push({ 
                         event, 
                         eventIdx, 
-                        topOffset,
-                        heightPx
+                        topOffset,      // % 단위
+                        heightPercent,  // % 단위
+                        heightPx        // px 단위
                     });
                 }
             });
