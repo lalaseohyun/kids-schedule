@@ -270,7 +270,6 @@
             position: relative;
             cursor: pointer;
             transition: background 0.1s;
-            overflow: visible;
         }
         
         .time-slot::before {
@@ -283,7 +282,7 @@
             border-right: 1px solid #e0e0e0;
             border-bottom: 1px solid #e0e0e0;
             pointer-events: none;
-            z-index: 1;
+            z-index: 0;
         }
         
         .time-slot.no-border::before {
@@ -1662,10 +1661,6 @@
                 html += `<div class="day-header active" onclick="filterByDay('all')" style="height: ${firstPeriodHeight}px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;">← 전체</div>`;
             }
 
-            // 각 요일별로 이미 렌더링된 일정 추적
-            const renderedByDay = {};
-            days.forEach(d => { renderedByDay[d] = new Set(); });
-
             allPeriods.forEach((period, idx) => {
                 // 교시 또는 시간 표시
                 const label = period.period || `${period.hour}:00`;
@@ -1709,23 +1704,43 @@
                         // 해당 시간대의 일정 렌더링 (점심시간 제외)
                         if (!(isLunch && day !== '토')) {
                             const daySchedules = schedules[day] || [];
-                            const relevantEvents = getEventsForPeriod(daySchedules, period, allPeriods, renderedByDay[day]);
+                            const relevantEvents = getEventsForPeriod(daySchedules, period, allPeriods);
                             
-                            relevantEvents.forEach(({ event, eventIdx, topOffset, heightPx }, renderIdx) => {
+                            relevantEvents.forEach(({ event, eventIdx, topOffset, heightPercent, isFirstPiece }, renderIdx) => {
                                 const subjectColors = appData.subjectColors[userKey] || {};
                                 const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
                                 
-                                // z-index를 높게 해서 나중 일정이 위로
-                                const zIndex = 10 + renderIdx;
+                                // z-index를 높게 해서 경계선보다 앞으로
+                                const zIndex = 50 + renderIdx;
+                                
+                                // 첫 조각만 텍스트 표시, 나머지는 색상만
+                                let content = '';
+                                let borderRadius = '0';
+                                let styleTop = topOffset + '%';
+                                let styleHeight = heightPercent + '%';
+                                
+                                if (isFirstPiece) {
+                                    // 첫 조각: 텍스트 표시
+                                    content = `
+                                        <div class="event-name" style="font-size: 10px; font-weight: 600; margin-bottom: 1px; text-align: center; line-height: 1.2;">${event.name || ''}</div>
+                                        <div class="event-time" style="font-size: 8px; opacity: 0.8; text-align: center;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                    `;
+                                    borderRadius = '4px 4px 0 0';
+                                } else {
+                                    // 연결 조각: 위로 1px 올리고 1px 더 길게
+                                    borderRadius = '0';
+                                    styleTop = `calc(${topOffset}% - 1px)`;
+                                    styleHeight = `calc(${heightPercent}% + 1px)`;
+                                }
 
                                 html += `
                                     <div class="event" 
                                          draggable="false"
                                          style="position: absolute; 
-                                                top: ${topOffset}%; 
+                                                top: ${styleTop}; 
                                                 left: 0; 
                                                 right: 0; 
-                                                height: ${heightPx}px; 
+                                                height: ${styleHeight}; 
                                                 background: ${bgColor}; 
                                                 cursor: pointer; 
                                                 padding: 6px 4px; 
@@ -1733,17 +1748,15 @@
                                                 flex-direction: column; 
                                                 align-items: center; 
                                                 justify-content: center; 
-                                                border-radius: 4px; 
-                                                box-shadow: 0 1px 2px rgba(0,0,0,0.1); 
+                                                border-radius: ${borderRadius}; 
+                                                box-shadow: ${isFirstPiece ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'}; 
                                                 z-index: ${zIndex}; 
                                                 border: none;
-                                                box-sizing: border-box;
-                                                overflow: visible;" 
+                                                box-sizing: border-box;" 
                                          onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})"
                                          onmouseenter="this.style.zIndex = 100"
                                          onmouseleave="this.style.zIndex = ${zIndex}">
-                                        <div class="event-name" style="font-size: 10px; font-weight: 600; margin-bottom: 1px; text-align: center; line-height: 1.2;">${event.name || ''}</div>
-                                        <div class="event-time" style="font-size: 8px; opacity: 0.8; text-align: center;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                        ${content}
                                     </div>
                                 `;
                             });
@@ -1825,7 +1838,7 @@
         }
         
         // 해당 시간대에 표시할 일정과 위치/높이 계산
-        function getEventsForPeriod(daySchedules, period, allPeriods, renderedEventIds = new Set()) {
+        function getEventsForPeriod(daySchedules, period, allPeriods) {
             const result = [];
             
             // 현재 period의 시작/종료 시간 (분 단위)
@@ -1840,38 +1853,32 @@
             
             const periodDuration = periodEnd - periodStart;
             
-            // CSS에서 실제 time-slot 높이 가져오기
-            const tempSlot = document.querySelector('.time-slot');
-            const slotHeight = tempSlot ? parseFloat(getComputedStyle(tempSlot).height) : 55;
-            
             daySchedules.forEach((event, eventIdx) => {
                 const eventStart = timeToMinutes(event.startTime);
                 const eventEnd = timeToMinutes(event.endTime);
                 
-                // 고유 ID로 중복 체크
-                const eventId = `${event.name}-${event.startTime}-${event.endTime}`;
-                if (renderedEventIds.has(eventId)) {
-                    return; // 이미 렌더링됨
-                }
-                
-                // 이 period에서 일정이 시작하는 경우에만 렌더링
-                if (eventStart >= periodStart && eventStart < periodEnd) {
-                    renderedEventIds.add(eventId); // 렌더링 완료 표시
+                // 이 period와 일정이 겹치는지 확인
+                if (eventStart < periodEnd && eventEnd > periodStart) {
+                    // 이 period 내에서 일정이 차지하는 구간
+                    const overlapStart = Math.max(eventStart, periodStart);
+                    const overlapEnd = Math.min(eventEnd, periodEnd);
                     
                     // top 위치: period 시작점 기준 (%)
-                    const topOffset = ((eventStart - periodStart) / periodDuration) * 100;
+                    const topOffset = ((overlapStart - periodStart) / periodDuration) * 100;
                     
-                    // 전체 높이를 px로 계산 (여러 칸 걸침)
-                    const eventDurationMinutes = eventEnd - eventStart;
+                    // 높이: 이 period 내에서 차지하는 비율 (%)
+                    const overlapDuration = overlapEnd - overlapStart;
+                    const heightPercent = (overlapDuration / periodDuration) * 100;
                     
-                    // 모든 칸의 높이가 동일하다고 가정하고 간단히 계산
-                    const heightPx = (eventDurationMinutes / 60) * slotHeight;
+                    // 일정이 시작하는 칸인지 확인
+                    const isFirstPiece = (eventStart >= periodStart && eventStart < periodEnd);
                     
                     result.push({ 
                         event, 
                         eventIdx, 
                         topOffset,      // % 단위
-                        heightPx        // px 단위
+                        heightPercent,  // % 단위
+                        isFirstPiece    // 첫 조각인지
                     });
                 }
             });
