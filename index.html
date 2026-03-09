@@ -270,7 +270,6 @@
             position: relative;
             cursor: pointer;
             transition: background 0.1s;
-            overflow: visible; /* 일정이 칸을 넘어갈 수 있게 */
         }
         
         .time-slot::before {
@@ -1835,57 +1834,32 @@
             
             const periodDuration = periodEnd - periodStart;
             
+            // CSS에서 실제 time-slot 높이 가져오기
+            const tempSlot = document.querySelector('.time-slot');
+            const slotHeight = tempSlot ? parseFloat(getComputedStyle(tempSlot).height) : 55;
+            
             daySchedules.forEach((event, eventIdx) => {
                 const eventStart = timeToMinutes(event.startTime);
                 const eventEnd = timeToMinutes(event.endTime);
                 
-                // 이 period에서 일정이 **시작**하는 경우에만 렌더링
-                if (eventStart >= periodStart && eventStart < periodEnd) {
-                    // 일정이 시작하는 칸에서의 위치 (%)
-                    const topOffset = ((eventStart - periodStart) / periodDuration) * 100;
+                // 이 period와 일정이 겹치는지 확인
+                if (eventStart < periodEnd && eventEnd > periodStart) {
+                    // 이 period 내에서 일정이 차지하는 구간
+                    const overlapStart = Math.max(eventStart, periodStart);
+                    const overlapEnd = Math.min(eventEnd, periodEnd);
                     
-                    // 전체 일정 길이를 픽셀로 계산
-                    // 40분 교시는 70px, 60분 시간은 80px, 점심은 40px
-                    const eventDurationMinutes = eventEnd - eventStart;
+                    // top 위치: period 시작점 기준 (%)
+                    const topOffset = ((overlapStart - periodStart) / periodDuration) * 100;
                     
-                    // 각 period의 높이를 계산
-                    let totalHeight = 0;
-                    let currentTime = eventStart;
-                    
-                    // CSS에서 실제 time-slot 높이 가져오기
-                    const tempSlot = document.querySelector('.time-slot');
-                    const computedHeight = tempSlot ? parseFloat(getComputedStyle(tempSlot).height) : 55;
-                    
-                    allPeriods.forEach(p => {
-                        let pStart, pEnd, pHeight;
-                        if (p.period) {
-                            pStart = timeToMinutes(p.start);
-                            pEnd = timeToMinutes(p.end);
-                            pHeight = computedHeight; // CSS에서 가져온 높이
-                        } else {
-                            pStart = p.hour * 60;
-                            pEnd = (p.hour + 1) * 60;
-                            pHeight = computedHeight;
-                        }
-                        
-                        // 일정이 이 period와 겹치는 부분 계산
-                        if (currentTime < eventEnd && currentTime >= pStart && currentTime < pEnd) {
-                            const overlapStart = Math.max(currentTime, pStart);
-                            const overlapEnd = Math.min(eventEnd, pEnd);
-                            const overlapDuration = overlapEnd - overlapStart;
-                            const pDuration = pEnd - pStart;
-                            
-                            // 이 period에서 차지하는 높이
-                            totalHeight += (overlapDuration / pDuration) * pHeight;
-                            currentTime = overlapEnd;
-                        }
-                    });
+                    // 높이: 이 period 내에서 차지하는 시간의 비율
+                    const overlapDuration = overlapEnd - overlapStart;
+                    const heightPx = (overlapDuration / periodDuration) * slotHeight;
                     
                     result.push({ 
                         event, 
                         eventIdx, 
-                        topOffset,  // 시작 위치 (%)
-                        heightPx: totalHeight  // 실제 픽셀 높이
+                        topOffset,
+                        heightPx
                     });
                 }
             });
