@@ -1639,10 +1639,10 @@
 
             let afterSchoolHours = [];
             if (afternoonMode === 'period') {
-                // 교시 방식: 40분 간격, 최대 8교시까지만
+                // 교시 방식: 40분 간격, 최대 8교시까지만 (이후 시간 행 없음)
                 const lastPeriodNum = periods.filter(p => p.period && p.period !== '점심').length;
                 let periodNum = lastPeriodNum + 1;
-                let curMin = periodEndMin;
+                let curMin = periodEndMin + 10; // 마지막 교시 끝 + 쉬는시간 10분
                 const MAX_PERIOD = 8;
                 while (curMin < 22 * 60 && periodNum <= MAX_PERIOD) {
                     const endMin = curMin + 40;
@@ -1652,11 +1652,12 @@
                         start: `${String(Math.floor(curMin/60)).padStart(2,'0')}:${String(curMin%60).padStart(2,'0')}`,
                         end:   `${String(Math.floor(endMin/60)).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`
                     });
-                    curMin = endMin + 10;
+                    curMin = endMin + 10; // 수업 40분 + 쉬는시간 10분
                     periodNum++;
                 }
-                // 8교시 이후는 16:00부터 1시간 간격으로
-                for (let h = 16; h <= 21; h++) {
+                // 8교시 이후: 8교시 끝 시간부터 1시간 간격으로 시간 표시
+                const lastEndHour = Math.ceil((curMin - 10) / 60); // curMin은 다음 쉬는시간까지 더해진 값
+                for (let h = lastEndHour; h <= 21; h++) {
                     afterSchoolHours.push({ hour: h });
                 }
             } else {
@@ -2058,13 +2059,14 @@
                 let afterSchoolC = [];
                 if (afternoonModeC === 'period') {
                     const lastNum = periods.filter(p => p.period && p.period !== '점심').length;
-                    let pNum = lastNum + 1, cur = pEndMin;
+                    let pNum = lastNum + 1, cur = pEndMin + 10; // 마지막 교시 끝 + 쉬는시간 10분
                     while (cur < 22 * 60 && pNum <= 8) {
                         const eMin = cur + 40;
                         afterSchoolC.push({ period: `${pNum}교시`, start: `${String(Math.floor(cur/60)).padStart(2,'0')}:${String(cur%60).padStart(2,'0')}`, end: `${String(Math.floor(eMin/60)).padStart(2,'0')}:${String(eMin%60).padStart(2,'0')}` });
                         cur = eMin + 10; pNum++;
                     }
-                    for (let h = 16; h <= 21; h++) afterSchoolC.push({ hour: h });
+                    const lastEndHour = Math.ceil((cur - 10) / 60);
+                    for (let h = lastEndHour; h <= 21; h++) afterSchoolC.push({ hour: h });
                 } else {
                     for (let h = afterSchoolStartHourC; h <= 21; h++) afterSchoolC.push({ hour: h });
                 }
@@ -3098,7 +3100,6 @@
                 : userInfo;
             const grade = currentChild ? parseInt(currentChild.grade) : 1;
             const basePeriods = gradeSchedules[grade] || gradeSchedules['1'];
-            const classPeriods = basePeriods.filter(p => p.period !== '점심');
 
             function isValidTime(val) {
                 if (!val || !/^\d{1,2}:\d{2}$/.test(val)) return false;
@@ -3110,10 +3111,18 @@
                 return `${String(h).padStart(2,'0')}:${m}`;
             }
 
+            // 화면에 렌더된 교시 필드 수 기준으로 수집 (basePeriods 대신)
+            const allClassPeriods = basePeriods.filter(p => p.period !== '점심');
+            let renderedCount = 0;
+            while (document.getElementById(`period-${renderedCount}-start`)) renderedCount++;
+
+            // 교시 이름 목록 (렌더된 수만큼)
+            const periodNames = allClassPeriods.slice(0, renderedCount).map(p => p.period);
+
             // 교시 시간 수집
             const collectedPeriods = [];
             let hasError = false;
-            classPeriods.forEach((period, idx) => {
+            for (let idx = 0; idx < renderedCount; idx++) {
                 const sv = document.getElementById(`period-${idx}-start`)?.value?.trim();
                 const ev = document.getElementById(`period-${idx}-end`)?.value?.trim();
                 const startEl = document.getElementById(`period-${idx}-start`);
@@ -3123,10 +3132,10 @@
                     hasError = true;
                     if (startEl) startEl.style.border = svOk ? '1px solid #ddd' : '2px solid red';
                     if (endEl)   endEl.style.border   = evOk ? '1px solid #ddd' : '2px solid red';
-                    return;
+                } else {
+                    collectedPeriods.push({ period: periodNames[idx] || `${idx+1}교시`, start: padTime(sv), end: padTime(ev) });
                 }
-                collectedPeriods.push({ period: period.period, start: padTime(sv), end: padTime(ev) });
-            });
+            }
 
             // 점심 시간 수집
             const lunchSv = document.getElementById('lunch-start')?.value?.trim();
