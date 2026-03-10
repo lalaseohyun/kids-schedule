@@ -3014,31 +3014,42 @@
             function toMin(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
             function fromMin(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; }
 
+            // lunchAfter: 몇 번째 교시 다음에 점심인지 (1-based)
             const lunchAfter = parseInt(document.getElementById('lunchPosition')?.value || '3');
 
-            // 점심 길이 미리 고정 (현재 입력값 기준, 없으면 50분)
+            // 교시 수 파악
+            let total = 0;
+            while (document.getElementById(`period-${total}-start`)) total++;
+
+            // 점심 길이: 현재 입력된 점심 시간 기준으로 미리 계산, 이상하면 50분
             const lsEl = document.getElementById('lunch-start');
             const leEl = document.getElementById('lunch-end');
-            const lunchDur = (lsEl?.value && leEl?.value && lsEl.value.includes(':') && leEl.value.includes(':'))
-                ? Math.max(10, toMin(leEl.value) - toMin(lsEl.value))
-                : 50;
+            let lunchDur = 50;
+            if (lsEl?.value?.includes(':') && leEl?.value?.includes(':')) {
+                const d = toMin(leEl.value) - toMin(lsEl.value);
+                if (d > 10 && d < 180) lunchDur = d;
+            }
 
             let cur = toMin(startVal);
-            let idx = 0;
-            while (document.getElementById(`period-${idx}-start`)) {
-                // 이 교시가 점심 이후 교시라면 cur에 점심 시간 추가
+
+            for (let idx = 0; idx < total; idx++) {
+                // idx는 0-based, lunchAfter는 1-based
+                // → lunchAfter번째 교시(idx = lunchAfter-1) 직후에 점심 삽입
+                // → idx = lunchAfter 일 때 점심 먼저 삽입
                 if (idx === lunchAfter) {
                     if (lsEl) lsEl.value = fromMin(cur);
                     if (leEl) leEl.value = fromMin(cur + lunchDur);
-                    cur += lunchDur; // 점심 끝 시간부터 시작
+                    cur += lunchDur;
                 }
 
-                const startEl = document.getElementById(`period-${idx}-start`);
-                const endEl   = document.getElementById(`period-${idx}-end`);
-                startEl.value = fromMin(cur);
-                endEl.value   = fromMin(cur + 40);
-                cur += 50; // 40분 수업 + 10분 쉬는시간
-                idx++;
+                document.getElementById(`period-${idx}-start`).value = fromMin(cur);
+                document.getElementById(`period-${idx}-end`).value   = fromMin(cur + 40);
+                cur += 40; // 수업 40분
+
+                // 쉬는시간 10분: 마지막 교시 제외, 점심 직전 교시(idx+1 === lunchAfter)는 제외
+                const isLast = (idx === total - 1);
+                const beforeLunch = (idx + 1 === lunchAfter);
+                if (!isLast && !beforeLunch) cur += 10;
             }
         }
 
