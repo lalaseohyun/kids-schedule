@@ -1455,37 +1455,43 @@
         async function handleLogin() {
             const nickname = document.getElementById('loginNickname').value.trim();
             const phone = document.getElementById('loginPhone').value.trim();
+            const loginBtn = document.querySelector('#loginScreen .btn');
 
             if (!nickname || !phone) {
                 alert('닉네임과 휴대폰 뒷자리를 입력해주세요.');
                 return;
             }
-
             if (!/^\d{4}$/.test(phone)) {
                 alert('휴대폰 뒷자리 4자리를 정확히 입력해주세요.');
                 return;
             }
 
-            // Firebase 동기화 시도
-            const synced = await syncFromFirebase(nickname, phone);
-            console.log('🔄 동기화 결과:', synced);
+            // 로딩 표시
+            if (loginBtn) { loginBtn.textContent = '로그인 중...'; loginBtn.disabled = true; }
 
-            // Firebase에서 데이터 가져왔는데 users 배열에 없으면 강제 추가
-            if (synced) {
-                loadData();
-                const existingUser = appData.users.find(u => u.nickname === nickname && u.phone === phone);
-                if (!existingUser) {
-                    appData.users.push({ nickname, phone, children: [] });
+            try {
+                // Firebase에서 먼저 동기화
+                const synced = await syncFromFirebase(nickname, phone);
+                console.log('🔄 동기화 결과:', synced);
+
+                // Firebase에서 가져왔으면 users에 반드시 추가
+                if (synced) {
+                    const existingUser = appData.users.find(u => u.nickname === nickname && u.phone === phone);
+                    if (!existingUser) {
+                        appData.users.push({ nickname, phone, children: [] });
+                    }
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
                 }
-            }
 
-            if (validateUser(nickname, phone)) {
-                currentUser = { nickname, phone };
-                localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
-                showMain();
-            } else {
-                alert('등록되지 않은 사용자입니다.\n처음 사용하시면 회원가입을 해주세요.');
+                if (validateUser(nickname, phone)) {
+                    currentUser = { nickname, phone };
+                    localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+                    showMain();
+                } else {
+                    alert('등록되지 않은 사용자입니다.\n처음 사용하시면 회원가입을 해주세요.');
+                }
+            } finally {
+                if (loginBtn) { loginBtn.textContent = '로그인'; loginBtn.disabled = false; }
             }
         }
 
