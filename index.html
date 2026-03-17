@@ -1397,6 +1397,8 @@
                         userData: appData.users.find(u => u.nickname === currentUser.nickname && u.phone === currentUser.phone),
                         schedules: appData.schedules,
                         subjectColors: appData.subjectColors,
+                        customSchedule: appData.customSchedule || {},
+                        afternoonMode: appData.afternoonMode || {},
                         lastUpdated: Date.now()
                     });
                     console.log('✅ Firebase 동기화 완료');
@@ -1415,33 +1417,23 @@
                 const data = snapshot.val();
                 
                 if (data) {
-                    console.log('📥 Firebase 데이터 발견:', data);
-                    const firebaseUpdated = data.lastUpdated || 0;
-                    const localData = localStorage.getItem(STORAGE_KEY);
-                    const localUpdated = localData ? (JSON.parse(localData).lastUpdated || 0) : 0;
+                    console.log('📥 Firebase 데이터 발견 - 무조건 로드');
 
-                    // LocalStorage가 비어있거나 Firebase가 더 최신이면 로드
-                    if (firebaseUpdated >= localUpdated) {
-                        console.log('🔄 Firebase가 더 최신 - 데이터 로드');
-                        appData.schedules = data.schedules || {};
-                        appData.subjectColors = data.subjectColors || {};
-                        appData.customSchedule = data.customSchedule || appData.customSchedule || {};
-                        appData.afternoonMode = data.afternoonMode || appData.afternoonMode || {};
+                    appData.schedules = data.schedules || appData.schedules || {};
+                    appData.subjectColors = data.subjectColors || appData.subjectColors || {};
+                    appData.customSchedule = data.customSchedule || appData.customSchedule || {};
+                    appData.afternoonMode = data.afternoonMode || appData.afternoonMode || {};
 
-                        // users 배열 복원
-                        const existingUser = appData.users.find(u => u.nickname === nickname && u.phone === phone);
-                        if (!existingUser) {
-                            const userData = data.userData || { nickname, phone, children: [] };
-                            appData.users.push(userData);
-                        }
-
-                        appData.lastUpdated = firebaseUpdated;
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-                        console.log('✅ Firebase에서 최신 데이터 로드 완료');
-                        return true;
-                    } else {
-                        console.log('💾 LocalStorage가 더 최신');
+                    // users 배열 복원
+                    const existingUser = appData.users.find(u => u.nickname === nickname && u.phone === phone);
+                    if (!existingUser) {
+                        const userData = data.userData || { nickname, phone, children: [] };
+                        appData.users.push(userData);
                     }
+
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                    console.log('✅ Firebase에서 데이터 로드 완료');
+                    return true;
                 } else {
                     console.log('📭 Firebase에 데이터 없음');
                 }
