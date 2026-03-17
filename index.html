@@ -1416,24 +1416,25 @@
                 
                 if (data) {
                     console.log('📥 Firebase 데이터 발견:', data);
-                    // Firebase 데이터가 있으면 가져오기
                     const firebaseUpdated = data.lastUpdated || 0;
                     const localData = localStorage.getItem(STORAGE_KEY);
-                    const localUpdated = localData ? JSON.parse(localData).lastUpdated || 0 : 0;
-                    
-                    // 더 최신 데이터 사용
-                    if (firebaseUpdated > localUpdated) {
+                    const localUpdated = localData ? (JSON.parse(localData).lastUpdated || 0) : 0;
+
+                    // LocalStorage가 비어있거나 Firebase가 더 최신이면 로드
+                    if (firebaseUpdated >= localUpdated) {
                         console.log('🔄 Firebase가 더 최신 - 데이터 로드');
-                        // Firebase가 더 최신
                         appData.schedules = data.schedules || {};
                         appData.subjectColors = data.subjectColors || {};
-                        
-                        // users 배열에 없으면 추가
+                        appData.customSchedule = data.customSchedule || appData.customSchedule || {};
+                        appData.afternoonMode = data.afternoonMode || appData.afternoonMode || {};
+
+                        // users 배열 복원
                         const existingUser = appData.users.find(u => u.nickname === nickname && u.phone === phone);
-                        if (!existingUser && data.userData) {
-                            appData.users.push(data.userData);
+                        if (!existingUser) {
+                            const userData = data.userData || { nickname, phone, children: [] };
+                            appData.users.push(userData);
                         }
-                        
+
                         appData.lastUpdated = firebaseUpdated;
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
                         console.log('✅ Firebase에서 최신 데이터 로드 완료');
@@ -1477,18 +1478,22 @@
             const synced = await syncFromFirebase(nickname, phone);
             console.log('🔄 동기화 결과:', synced);
 
+            // Firebase에서 데이터 가져왔는데 users 배열에 없으면 강제 추가
+            if (synced) {
+                loadData();
+                const existingUser = appData.users.find(u => u.nickname === nickname && u.phone === phone);
+                if (!existingUser) {
+                    appData.users.push({ nickname, phone, children: [] });
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+                }
+            }
+
             if (validateUser(nickname, phone)) {
                 currentUser = { nickname, phone };
                 localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
-                
-                // Firebase 동기화 성공 시 데이터 다시 로드
-                if (synced) {
-                    loadData();
-                }
-                
                 showMain();
             } else {
-                alert('등록되지 않은 사용자입니다.');
+                alert('등록되지 않은 사용자입니다.\n처음 사용하시면 회원가입을 해주세요.');
             }
         }
 
