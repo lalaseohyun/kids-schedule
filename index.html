@@ -337,12 +337,18 @@
             margin-bottom: 3px;
             font-size: 14px;
             text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .event-time {
             font-size: 10px;
             opacity: 0.8;
             text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .event-details {
@@ -382,11 +388,17 @@
         .event-name {
             font-weight: 600;
             margin-bottom: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .event-time {
             font-size: 10px;
             opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .event-details {
@@ -707,7 +719,7 @@
             }
             
             .calendar-grid.detail-view {
-                grid-template-columns: 40px 1fr !important;
+                grid-template-columns: 58px 1fr !important;
             }
             
             .day-header {
@@ -762,10 +774,16 @@
             
             .event-name {
                 font-size: 12px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             
             .event-time {
                 font-size: 10px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             
             .event-details {
@@ -1712,7 +1730,7 @@
                     const slotStyle = `height: ${detailViewHeight}px; min-height: ${detailViewHeight}px;`;
                     const dayEscaped = day.replace(/'/g, "\\'");
 
-                    html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 14px; display: flex; align-items: center; justify-content: center; font-weight: 600;">${displayLabel}</div>`;
+                    html += `<div class="time-label" style="height: ${detailViewHeight}px; min-height: ${detailViewHeight}px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 600;">${displayLabel}</div>`;
 
                     if (isLunch && day !== '토') {
                         html += `<div class="time-slot no-border" style="${slotStyle} cursor: default; background: #fafafa; padding: 10px 0; display: flex; align-items: center; justify-content: center;">
@@ -1738,11 +1756,11 @@
                             html += `<div class="event" draggable="false"
                                 style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: ${eventHeight}px; background: ${bgColor}; padding: 12px; margin-bottom: 10px; cursor: pointer; border-radius: 4px;"
                                 onclick="event.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx})">
-                                <div class="event-name" style="font-size: 20px; font-weight: 700; margin-bottom: 8px; text-align: center;">${event.name || ''}</div>
-                                <div class="event-time" style="font-size: 16px; margin-bottom: 12px; text-align: center; font-weight: 500;">${formatTimeRange(event.startTime, event.endTime)}</div>
-                                ${event.teacher ? `<div class="event-details" style="font-size: 14px; margin-top: 6px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
-                                ${event.contact ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; text-align: center;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="event.stopPropagation();" style="color: inherit; text-decoration: none;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
-                                ${event.memo ? `<div class="event-details" style="font-size: 14px; margin-top: 4px; line-height: 1.6; text-align: center; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
+                                <div class="event-name" style="font-size: 15px; font-weight: 700; margin-bottom: 6px; text-align: center;">${event.name || ''}</div>
+                                <div class="event-time" style="font-size: 13px; margin-bottom: 8px; text-align: center; font-weight: 500;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                ${event.teacher ? `<div class="event-details" style="font-size: 12px; margin-top: 5px; text-align: center;">👨‍🏫 ${event.teacher}</div>` : ''}
+                                ${event.contact ? `<div class="event-details" style="font-size: 12px; margin-top: 4px; text-align: center;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="(function(e){e.stopPropagation();})(event);" style="color: inherit; text-decoration: none; pointer-events: auto;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
+                                ${event.memo ? `<div class="event-details" style="font-size: 12px; margin-top: 4px; line-height: 1.6; text-align: center; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
                             </div>`;
                         });
                         html += '</div>';
