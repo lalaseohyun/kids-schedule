@@ -1240,7 +1240,6 @@
         // 24시간 형식을 12시간 형식으로 변환
         function formatTime12Hour(time24) {
             if (!time24) return '';
-            // 24시간제 그대로 표시 (앞 0 제거: 09:00 → 9:00)
             const [hour, minute] = time24.split(':');
             return `${parseInt(hour)}:${minute}`;
         }
@@ -1248,6 +1247,16 @@
         // 시간 범위 표시
         function formatTimeRange(startTime, endTime) {
             return `${formatTime12Hour(startTime)}-${formatTime12Hour(endTime)}`;
+        }
+
+        // 전체보기 모바일용 짧은 시간 표시 (15:20-16:00 → 15:20~16)
+        function formatTimeRangeShort(startTime, endTime) {
+            if (!startTime || !endTime) return '';
+            const [sh, sm] = startTime.split(':');
+            const [eh, em] = endTime.split(':');
+            const start = `${parseInt(sh)}:${sm}`;
+            const end = em === '00' ? `${parseInt(eh)}` : `${parseInt(eh)}:${em}`;
+            return `${start}~${end}`;
         }
         
         // 시간 중복 체크 함수
@@ -2046,7 +2055,7 @@
                     nameDiv.textContent = event.name || '';
 
                     const timeDiv = document.createElement('div');
-                    timeDiv.style.cssText = `font-size:${isMobile?'8px':'9px'}; opacity:0.75; text-align:center; margin-top:1px; color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;`;
+                    timeDiv.style.cssText = `font-size:8px; opacity:0.75; text-align:center; margin-top:1px; color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; letter-spacing:-0.5px;`;
                     timeDiv.textContent = formatTimeRange(event.startTime, event.endTime);
 
                     ev.appendChild(nameDiv);
