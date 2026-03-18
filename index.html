@@ -1703,8 +1703,12 @@
             // ─── 상세보기 ───────────────────────────────────────────
             if (currentDayFilter !== 'all') {
                 const day = currentDayFilter;
+                const isMobileDetail = window.innerWidth <= 768;
+                const isTabletDetail = window.innerWidth >= 769 && window.innerWidth <= 1024;
+                const BASE_HEIGHT = isMobileDetail ? 55 : isTabletDetail ? 80 : 110; // 전체보기와 동일
+
                 const periodHeights = {};
-                allPeriods.forEach((period, idx) => { periodHeights[idx] = 40; });
+                allPeriods.forEach((period, idx) => { periodHeights[idx] = BASE_HEIGHT; });
                 const daySchedules = schedules[day] || [];
                 daySchedules.forEach(event => {
                     let detailsCount = 0;
