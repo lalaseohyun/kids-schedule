@@ -1284,11 +1284,13 @@
         }
 
         // 초기화
-        function init() {
+        async function init() {
             loadData();
             const saved = localStorage.getItem(USER_KEY);
             if (saved) {
                 currentUser = JSON.parse(saved);
+                // Firebase에서 먼저 복원 시도 (LocalStorage가 비어있어도 복원 가능)
+                await syncFromFirebase(currentUser.nickname, currentUser.phone);
                 if (validateUser(currentUser.nickname, currentUser.phone)) {
                     showMain();
                 } else {
@@ -1703,22 +1705,18 @@
             // ─── 상세보기 ───────────────────────────────────────────
             if (currentDayFilter !== 'all') {
                 const day = currentDayFilter;
-                const isMobileDetail = window.innerWidth <= 768;
-                const isTabletDetail = window.innerWidth >= 769 && window.innerWidth <= 1024;
-                const BASE_HEIGHT = isMobileDetail ? 55 : isTabletDetail ? 80 : 110; // 전체보기와 동일
-
                 const periodHeights = {};
-                allPeriods.forEach((period, idx) => { periodHeights[idx] = BASE_HEIGHT; });
+                allPeriods.forEach((period, idx) => { periodHeights[idx] = 44; });
                 const daySchedules = schedules[day] || [];
                 daySchedules.forEach(event => {
                     let detailsCount = 0;
                     if (event.teacher) detailsCount++;
                     if (event.contact) detailsCount++;
                     if (event.memo) detailsCount++;
-                    const eventHeight = 60 + (detailsCount * 25) + 10;
+                    const eventHeight = 56 + (detailsCount * 26) + 8;
                     allPeriods.forEach((period, idx) => {
                         const isIn = period.start ? isEventInPeriod(event, period) : isEventInHour(event, period.hour);
-                        if (isIn) periodHeights[idx] = Math.max(periodHeights[idx], eventHeight + 20);
+                        if (isIn) periodHeights[idx] = Math.max(periodHeights[idx], eventHeight);
                     });
                 });
 
@@ -1737,8 +1735,6 @@
                 bodyGrid.style.cssText = `display: grid; grid-template-columns: 58px 1fr;`;
                 let bodyHtml = '';
 
-                const renderedEvents = new Set(); // 중복 렌더링 방지
-
                 allPeriods.forEach((period, idx) => {
                     const displayLabel = period.hour != null
                         ? `${period.hour}:00`
@@ -1755,35 +1751,30 @@
                             <div style="font-size: 12px; color: #999; text-align: center;">${period.start}-${period.end}</div>
                         </div>`;
                     } else {
-                        if (isLunch) bodyHtml += `<div style="${slotStyle} padding: 8px 6px; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
-                        else if (period.period) bodyHtml += `<div style="${slotStyle} padding: 8px 6px; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
-                        else bodyHtml += `<div style="${slotStyle} padding: 8px 6px; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
+                        if (isLunch) bodyHtml += `<div style="${slotStyle} padding: 0; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                        else if (period.period) bodyHtml += `<div style="${slotStyle} padding: 0; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
+                        else bodyHtml += `<div style="${slotStyle} padding: 0; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
 
-                        const periodSchedules = daySchedules.filter(event => {
-                            const eventIdx = daySchedules.indexOf(event);
-                            if (renderedEvents.has(eventIdx)) return false; // 이미 렌더된 이벤트 제외
-                            return period.start ? isEventInPeriod(event, period) : isEventInHour(event, period.hour);
-                        });
+                        const periodSchedules = daySchedules.filter(event =>
+                            period.start ? isEventInPeriod(event, period) : isEventInHour(event, period.hour)
+                        );
                         periodSchedules.forEach((event) => {
                             const eventIdx = daySchedules.indexOf(event);
-                            renderedEvents.add(eventIdx); // 렌더된 이벤트 기록
                             const subjectColors = appData.subjectColors[userKey] || {};
                             const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
                             let detailsCount = 0;
                             if (event.teacher) detailsCount++;
                             if (event.contact) detailsCount++;
                             if (event.memo) detailsCount++;
-                            const eventHeight = 56 + (detailsCount * 24);
+                            const eventHeight = 56 + (detailsCount * 26) + 8;
                             bodyHtml += `<div class="event" draggable="false"
-                                style="position: relative; top: 0; left: 0; right: 0; height: auto; min-height: ${eventHeight}px; background: ${bgColor}; padding: 10px 12px; margin-bottom: 6px; cursor: pointer; border-radius: 6px;"
+                                style="position: relative; top: 0; left: 0; right: 0; height: 100%; min-height: ${eventHeight}px; background: ${bgColor}; padding: 10px 12px; margin-bottom: 0; cursor: pointer; border-radius: 4px; box-sizing: border-box;"
                                 onclick="(function(ev){ev.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx});})(event)">
                                 <div style="font-size: 15px; font-weight: 700; text-align: center; line-height: 1.3;">${event.name || ''}</div>
-                                <div style="font-size: 13px; text-align: center; font-weight: 500; opacity: 0.85; margin-top: 1px;">${formatTimeRange(event.startTime, event.endTime)}</div>
-                                ${(event.teacher || event.contact || event.memo) ? `<div style="margin-top: 6px; padding-top: 4px;">` : ''}
-                                ${event.teacher ? `<div style="font-size: 12px; text-align: center; margin-bottom: 2px;">👨‍🏫 ${event.teacher}</div>` : ''}
-                                ${event.contact ? `<div style="font-size: 12px; text-align: center; margin-bottom: 2px;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="(function(ev){ev.stopPropagation();})(event);" style="color: inherit; text-decoration: none; pointer-events: auto; display: block;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
-                                ${event.memo ? `<div style="font-size: 12px; text-align: center; line-height: 1.5; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
-                                ${(event.teacher || event.contact || event.memo) ? `</div>` : ''}
+                                <div style="font-size: 13px; text-align: center; font-weight: 500; opacity: 0.85; margin-top: 2px;">${formatTimeRange(event.startTime, event.endTime)}</div>
+                                ${event.teacher ? `<div style="font-size: 12px; text-align: center; margin-top: 5px;">👨‍🏫 ${event.teacher}</div>` : ''}
+                                ${event.contact ? `<div style="font-size: 12px; text-align: center; margin-top: 3px;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="(function(ev){ev.stopPropagation();})(event);" style="color: inherit; text-decoration: none; pointer-events: auto; display: block;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
+                                ${event.memo ? `<div style="font-size: 12px; text-align: center; margin-top: 3px; line-height: 1.5; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
                             </div>`;
                         });
                         bodyHtml += '</div>';
@@ -2051,11 +2042,11 @@
                     `;
 
                     const nameDiv = document.createElement('div');
-                    nameDiv.style.cssText = `font-size:${isMobile?'9px':'11px'}; font-weight:600; text-align:center; line-height:1.2; color:#000;`;
+                    nameDiv.style.cssText = `font-size:${isMobile?'9px':'11px'}; font-weight:600; text-align:center; line-height:1.2; color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;`;
                     nameDiv.textContent = event.name || '';
 
                     const timeDiv = document.createElement('div');
-                    timeDiv.style.cssText = `font-size:${isMobile?'8px':'9px'}; opacity:0.75; text-align:center; margin-top:1px; color:#000;`;
+                    timeDiv.style.cssText = `font-size:${isMobile?'8px':'9px'}; opacity:0.75; text-align:center; margin-top:1px; color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;`;
                     timeDiv.textContent = formatTimeRange(event.startTime, event.endTime);
 
                     ev.appendChild(nameDiv);
@@ -2840,26 +2831,8 @@
         // 요일 필터
         function filterByDay(day) {
             currentDayFilter = day;
-            const fab = document.querySelector('.fab');
-            if (day === 'all') {
-                if (fab) fab.style.display = 'flex';
-                history.replaceState({ view: 'all' }, '');
-            } else {
-                if (fab) fab.style.display = 'none';
-                history.pushState({ view: 'day', day }, '');
-            }
             renderCalendar();
         }
-
-        // 브라우저 뒤로가기 버튼 처리
-        window.addEventListener('popstate', function(e) {
-            if (currentDayFilter !== 'all') {
-                currentDayFilter = 'all';
-                const fab = document.querySelector('.fab');
-                if (fab) fab.style.display = 'flex';
-                renderCalendar();
-            }
-        });
 
         // 드래그 앤 드롭 핸들러
         function handleDragStart(e, day, idx) {
