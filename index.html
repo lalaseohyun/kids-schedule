@@ -1259,13 +1259,12 @@
             const newEnd = timeToMinutes(newEndTime);
             
             for (let i = 0; i < daySchedules.length; i++) {
-                if (i === excludeIdx) continue; // 수정 중인 일정은 제외
+                if (i === excludeIdx) continue;
                 
                 const schedule = daySchedules[i];
                 const existingStart = timeToMinutes(schedule.startTime);
                 const existingEnd = timeToMinutes(schedule.endTime);
                 
-                // 시간 겹침 체크
                 if ((newStart < existingEnd && newEnd > existingStart)) {
                     return {
                         overlap: true,
@@ -1734,6 +1733,8 @@
                 bodyGrid.style.cssText = `display: grid; grid-template-columns: 58px 1fr;`;
                 let bodyHtml = '';
 
+                const renderedEvents = new Set(); // 중복 렌더링 방지
+
                 allPeriods.forEach((period, idx) => {
                     const displayLabel = period.hour != null
                         ? `${period.hour}:00`
@@ -1754,11 +1755,14 @@
                         else if (period.period) bodyHtml += `<div style="${slotStyle} padding: 8px 6px; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-period="${idx}" onclick="clickPeriod('${dayEscaped}', ${idx}, '${grade}')">`;
                         else bodyHtml += `<div style="${slotStyle} padding: 8px 6px; border-bottom: 1px solid #e0e0e0;" data-day="${day}" data-hour="${period.hour}" onclick="clickHour('${dayEscaped}', ${period.hour})">`;
 
-                        const periodSchedules = daySchedules.filter(event =>
-                            period.start ? isEventInPeriod(event, period) : isEventInHour(event, period.hour)
-                        );
+                        const periodSchedules = daySchedules.filter(event => {
+                            const eventIdx = daySchedules.indexOf(event);
+                            if (renderedEvents.has(eventIdx)) return false; // 이미 렌더된 이벤트 제외
+                            return period.start ? isEventInPeriod(event, period) : isEventInHour(event, period.hour);
+                        });
                         periodSchedules.forEach((event) => {
                             const eventIdx = daySchedules.indexOf(event);
+                            renderedEvents.add(eventIdx); // 렌더된 이벤트 기록
                             const subjectColors = appData.subjectColors[userKey] || {};
                             const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
                             let detailsCount = 0;
@@ -1771,7 +1775,7 @@
                                 onclick="(function(ev){ev.stopPropagation(); editEvent('${dayEscaped}', ${eventIdx});})(event)">
                                 <div style="font-size: 15px; font-weight: 700; text-align: center; line-height: 1.3;">${event.name || ''}</div>
                                 <div style="font-size: 13px; text-align: center; font-weight: 500; opacity: 0.85; margin-top: 1px;">${formatTimeRange(event.startTime, event.endTime)}</div>
-                                ${(event.teacher || event.contact || event.memo) ? `<div style="margin-top: 8px; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 6px;">` : ''}
+                                ${(event.teacher || event.contact || event.memo) ? `<div style="margin-top: 6px; padding-top: 4px;">` : ''}
                                 ${event.teacher ? `<div style="font-size: 12px; text-align: center; margin-bottom: 2px;">👨‍🏫 ${event.teacher}</div>` : ''}
                                 ${event.contact ? `<div style="font-size: 12px; text-align: center; margin-bottom: 2px;"><a href="tel:${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}" onclick="(function(ev){ev.stopPropagation();})(event);" style="color: inherit; text-decoration: none; pointer-events: auto; display: block;">📞 ${event.contact.startsWith('010-') ? event.contact : '010-' + event.contact}</a></div>` : ''}
                                 ${event.memo ? `<div style="font-size: 12px; text-align: center; line-height: 1.5; white-space: pre-wrap;">📝 ${event.memo}</div>` : ''}
@@ -2017,7 +2021,7 @@
                     const bgColor = event.color || subjectColors[event.name] || '#F4C6C6';
                     const eventStartMin = timeToMinutes(event.startTime);
                     const eventEndMin   = timeToMinutes(event.endTime);
-                    const margin = 2; // 위아래 여백(px)
+                    const margin = 2;
                     const topPx    = timeToPx(eventStartMin) + margin;
                     const heightPx = timeToPx(eventEndMin) - timeToPx(eventStartMin) - margin * 2;
                     if (heightPx <= 0) return;
@@ -2832,8 +2836,26 @@
         // 요일 필터
         function filterByDay(day) {
             currentDayFilter = day;
+            const fab = document.querySelector('.fab');
+            if (day === 'all') {
+                if (fab) fab.style.display = 'flex';
+                history.replaceState({ view: 'all' }, '');
+            } else {
+                if (fab) fab.style.display = 'none';
+                history.pushState({ view: 'day', day }, '');
+            }
             renderCalendar();
         }
+
+        // 브라우저 뒤로가기 버튼 처리
+        window.addEventListener('popstate', function(e) {
+            if (currentDayFilter !== 'all') {
+                currentDayFilter = 'all';
+                const fab = document.querySelector('.fab');
+                if (fab) fab.style.display = 'flex';
+                renderCalendar();
+            }
+        });
 
         // 드래그 앤 드롭 핸들러
         function handleDragStart(e, day, idx) {
